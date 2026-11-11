@@ -23,3 +23,6 @@ backups/
 
 # Fotos de producto subidas en desarrollo (MEDIA_DIR). En el VPS esto es un volumen.
 media/
+
+# Staging local: copia .env.staging.example y rellena (no versionar)
+.env.staging
