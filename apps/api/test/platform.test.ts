@@ -339,8 +339,8 @@ describe('cambio de plan', () => {
 
 describe('métricas', () => {
   it('el MRR suma sólo lo que está al día; lo moroso va aparte', async () => {
-    await darPlan(a.businessId, 'basico', 'active'); // 149
-    await darPlan(b.businessId, 'pro', 'past_due'); // 299, en riesgo
+    await darPlan(a.businessId, 'basico', 'active'); // 74.50
+    await darPlan(b.businessId, 'pro', 'past_due'); // 149.50, en riesgo
 
     const res = await app.inject({
       method: 'GET',
@@ -349,8 +349,8 @@ describe('métricas', () => {
     });
     expect(res.statusCode).toBe(200);
     const m = res.json().data;
-    expect(m.mrr).toBe('149.00');
-    expect(m.mrrEnRiesgo).toBe('299.00');
+    expect(m.mrr).toBe('74.50');
+    expect(m.mrrEnRiesgo).toBe('149.50');
     expect(m.porEstado.active).toBe(1);
     expect(m.porEstado.past_due).toBe(1);
     expect(m.totalNegocios).toBe(2);
@@ -998,7 +998,7 @@ describe('contratación por más de un mes', () => {
 
     expect(sub!.billingMonths).toBe(60);
     // 149.00 × 60 con 30% de descuento.
-    expect(sub!.billedAmount).toBe('6258.00');
+    expect(sub!.billedAmount).toBe('3129.00');
     expect(sub!.cycleStartedAt).toBeTruthy();
     // El vencimiento sale del ciclo: nadie tiene que acordarse de ponerlo a mano dentro
     // de cinco años.
@@ -1014,11 +1014,11 @@ describe('contratación por más de un mes', () => {
     });
     expect(res.statusCode).toBe(200);
     const d = res.json().data;
-    expect(d.pagado).toBe('6258.00');
+    expect(d.pagado).toBe('3129.00');
     expect(d.mesesContratados).toBe(60);
     // Recién contratado: no ha usado nada, así que le tocaría la mitad de todo.
     expect(d.mesesSinUsar).toBe(60);
-    expect(d.devolucion).toBe('3129.00');
+    expect(d.devolucion).toBe('1564.50');
   });
 
   it('CONTRATAR ACTIVA la suscripción: el que paga no puede quedarse bloqueado', async () => {

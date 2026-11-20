@@ -93,7 +93,7 @@ export const PLAN_CATALOG: PlanDefinition[] = [
   {
     code: 'basico',
     name: 'Básico',
-    priceMonthly: '149.00',
+    priceMonthly: '74.50',
     currency: 'BOB',
     description: 'Para un negocio con una sola tienda.',
     maxLocations: 1,
@@ -110,7 +110,7 @@ export const PLAN_CATALOG: PlanDefinition[] = [
   {
     code: 'pro',
     name: 'Pro',
-    priceMonthly: '299.00',
+    priceMonthly: '149.50',
     currency: 'BOB',
     description: 'Varias sucursales, con panel de análisis y bitácora de actividad.',
     maxLocations: 3,
@@ -123,7 +123,7 @@ export const PLAN_CATALOG: PlanDefinition[] = [
   {
     code: 'ilimitado',
     name: 'Ilimitado',
-    priceMonthly: '599.00',
+    priceMonthly: '299.50',
     currency: 'BOB',
     description: 'Sin límites de sucursales, usuarios ni productos.',
     maxLocations: null,
