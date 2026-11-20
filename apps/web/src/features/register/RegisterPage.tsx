@@ -162,6 +162,7 @@ export function RegisterPage() {
       descripcion={`${TRIAL_DAYS} días gratis. Sin tarjeta.`}
       ancho="md"
       legal={false}
+      tab="registro"
       pie={
         <>
           ¿Ya tienes cuenta?{' '}

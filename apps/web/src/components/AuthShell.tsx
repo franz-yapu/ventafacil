@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import { AuthHero, AuthHeroMovil } from '@/components/AuthHero';
+import { AuthHero, AuthHeroMovil, AuthLayout, AuthTabs } from '@/components/AuthHero';
+import { cn } from '@/lib/utils';
 import { Marca, NombreDeMarca } from '@/components/Marca';
-import { Card, CardContent } from '@/components/ui/card';
 
 /**
  * Marco común de las pantallas SIN sesión: login, registro, recuperar contraseña,
@@ -24,6 +24,7 @@ export function AuthShell({
   pie,
   ancho = 'sm',
   legal = true,
+  tab,
 }: {
   titulo: string;
   descripcion?: string;
@@ -33,62 +34,63 @@ export function AuthShell({
   ancho?: 'sm' | 'md';
   /** El registro ya pide aceptar los términos con una casilla: repetirlos abajo sobra. */
   legal?: boolean;
+  /** Muestra las pestañas Entrar / Crear cuenta. */
+  tab?: 'entrar' | 'registro';
 }) {
+  const cab = (
+    <>
+      <Marca size="md" inverso />
+      <NombreDeMarca className="text-[17px] font-semibold" />
+    </>
+  );
   return (
-    <div className="flex min-h-full flex-col md:flex-row">
-      <AuthHeroMovil
-        cabecera={
-          <>
-            <Marca size="md" inverso />
-            <NombreDeMarca className="text-[17px] font-semibold" />
-          </>
-        }
-        titular="Tu punto de venta, simple y siempre listo."
-      />
-      <AuthHero
-        cabecera={
-          <>
-            <Marca size="md" inverso />
-            <NombreDeMarca className="text-[17px] font-semibold" />
-          </>
-        }
-        titular={
-          <>
-            Tu punto de venta,
-            <br />
-            simple y siempre listo.
-          </>
-        }
-        texto="Cobra, controla el inventario y cierra la caja desde cualquier equipo, con o sin internet."
-        puntos={['Funciona sin conexión', 'Caja e inventario cuadrados', 'Reportes en tiempo real']}
-      />
+    <AuthLayout
+      movil={
+        <AuthHeroMovil
+          cabecera={cab}
+          titular={
+            <>
+              Tu punto de venta, <span className="auth-accent">siempre listo.</span>
+            </>
+          }
+        />
+      }
+      hero={
+        <AuthHero
+          cabecera={cab}
+          titular={
+            <>
+              Tu punto de venta, <span className="auth-accent">siempre listo.</span>
+            </>
+          }
+          texto="Cobra, controla el inventario y cierra la caja desde cualquier equipo, con o sin internet."
+          puntos={[
+            'Funciona sin conexión',
+            'Caja e inventario cuadrados',
+            'Reportes en tiempo real',
+          ]}
+        />
+      }
+    >
       <div
-        className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-8"
-        style={{
-          background:
-            'radial-gradient(900px 500px at 100% 0%, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 60%), var(--color-bg)',
-        }}
+        className={cn(
+          'w-full rounded-[24px] border border-border bg-surface p-6 shadow-card md:p-10',
+          ancho === 'md' ? 'max-w-[520px]' : 'max-w-[460px]',
+        )}
       >
-        <div className={ancho === 'md' ? 'w-full max-w-md' : 'w-full max-w-sm'}>
-          <h1 className="mb-1 text-[22px] font-extrabold tracking-[-0.03em] md:hidden">{titulo}</h1>
-          <div className="mb-5 hidden md:block">
-            <h1 className="text-[28px] font-extrabold tracking-[-0.035em]">{titulo}</h1>
-            {descripcion && <p className="mt-1.5 text-sm text-muted">{descripcion}</p>}
-          </div>
-          {descripcion && (
-            <p className="mb-4 text-center text-[13px] text-muted md:hidden">{descripcion}</p>
-          )}
-
-          <Card className="shadow-[0_24px_60px_-28px_rgba(0,0,0,0.25)]">
-            <CardContent className="p-6">{children}</CardContent>
-          </Card>
-
-          {pie && <div className="mt-4 text-center text-[13px] text-muted">{pie}</div>}
-
-          {legal && <PieLegal />}
+        {tab && <AuthTabs actual={tab} />}
+        <div className="motion-safe:animate-rise">
+          <h1 className="auth-display text-[34px] leading-[1.05] md:text-[38px]">{titulo}</h1>
+          {descripcion && <p className="mb-5 mt-2 text-[15px] text-muted">{descripcion}</p>}
         </div>
+
+        {children}
+
+        {pie && <div className="mt-5 text-center text-[13px] text-muted">{pie}</div>}
+
+        {legal && <PieLegal />}
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 
