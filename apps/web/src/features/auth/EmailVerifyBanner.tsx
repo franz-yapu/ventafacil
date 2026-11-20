@@ -36,8 +36,8 @@ export function EmailVerifyBanner() {
   }
 
   return (
-    <div className="no-print flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-warning-bg px-4 py-2 text-[13px] text-warning">
-      <MailWarning size={15} className="shrink-0" />
+    <div className="no-print flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-4 py-2 text-[13px] text-fg">
+      <MailWarning size={15} className="shrink-0 text-primary" />
       {user.email ? (
         <>
           <span>
@@ -49,7 +49,7 @@ export function EmailVerifyBanner() {
             <button
               onClick={reenviar}
               disabled={enviando}
-              className="font-bold underline underline-offset-2 disabled:opacity-60"
+              className="font-bold text-primary underline underline-offset-2 disabled:opacity-60"
             >
               {enviando ? 'Enviando…' : 'Reenviar correo'}
             </button>
@@ -58,7 +58,7 @@ export function EmailVerifyBanner() {
       ) : (
         <>
           <span>No tienes un correo registrado: no podrías recuperar tu contraseña.</span>
-          <Link to="/perfil" className="font-bold underline underline-offset-2">
+          <Link to="/perfil" className="font-bold text-primary underline underline-offset-2">
             Añadir correo
           </Link>
         </>

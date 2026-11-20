@@ -183,6 +183,15 @@
   --color-secondary-fg: #17171a;
 
   /* Neutros cálidos. Los reescribe el modo oscuro. */
+  /* 60-30-10: el 60 es el fondo cálido (bg) y las hojas (surface); el 30 es el MENÚ en tinta
+     profunda (nav); el 10 es el color de la marca (primary), reservado a lo que se pulsa y a
+     lo que importa. Los tokens `nav-*` no dependen del color del negocio: así un menú
+     oscuro lee igual con cualquier marca. */
+  --color-nav: #19181d;
+  --color-nav-fg: #f5f4f1;
+  --color-nav-muted: #a9a8b3;
+  --color-nav-line: rgba(255, 255, 255, 0.1);
+  --color-nav-hover: rgba(255, 255, 255, 0.08);
   --color-bg: #f6f5f3;
   --color-surface: #ffffff;
   --color-border: #ecebe6;
@@ -315,6 +324,11 @@
   --color-icon-dim: #5d5b55;
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.5);
   --shadow-card-hover: 0 4px 14px -4px rgba(0, 0, 0, 0.6);
+  --color-nav: #0d0d10;
+  --color-nav-fg: #efeee9;
+  --color-nav-muted: #a3a2ac;
+  --color-nav-line: rgba(255, 255, 255, 0.09);
+  --color-nav-hover: rgba(255, 255, 255, 0.07);
 
   color-scheme: dark;
 }

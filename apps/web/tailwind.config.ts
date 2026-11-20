@@ -61,6 +61,13 @@ export default {
           fg: token('--color-secondary-fg'),
           soft: token('--color-secondary-soft'),
         },
+        nav: {
+          DEFAULT: token('--color-nav'),
+          fg: token('--color-nav-fg'),
+          muted: token('--color-nav-muted'),
+          line: token('--color-nav-line'),
+          hover: token('--color-nav-hover'),
+        },
         bg: token('--color-bg'),
         surface: token('--color-surface'),
         border: token('--color-border'),
