@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { AuthHero, AuthHeroMovil } from '@/components/AuthHero';
 import { Marca, NombreDeMarca } from '@/components/Marca';
 import { Card, CardContent } from '@/components/ui/card';
 
@@ -34,25 +35,58 @@ export function AuthShell({
   legal?: boolean;
 }) {
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-5 px-4 py-8">
-      <div className={ancho === 'md' ? 'w-full max-w-md' : 'w-full max-w-sm'}>
-        <div className="mb-5 flex flex-col items-center gap-3 text-center">
-          <Marca size="lg" />
-          <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em]">
-              <NombreDeMarca />
-            </h1>
-            <p className="mt-0.5 text-[13px] text-muted">{descripcion ?? titulo}</p>
+    <div className="flex min-h-full flex-col md:flex-row">
+      <AuthHeroMovil
+        cabecera={
+          <>
+            <Marca size="md" inverso />
+            <NombreDeMarca className="text-[17px] font-semibold" />
+          </>
+        }
+        titular="Tu punto de venta, simple y siempre listo."
+      />
+      <AuthHero
+        cabecera={
+          <>
+            <Marca size="md" inverso />
+            <NombreDeMarca className="text-[17px] font-semibold" />
+          </>
+        }
+        titular={
+          <>
+            Tu punto de venta,
+            <br />
+            simple y siempre listo.
+          </>
+        }
+        texto="Cobra, controla el inventario y cierra la caja desde cualquier equipo, con o sin internet."
+        puntos={['Funciona sin conexión', 'Caja e inventario cuadrados', 'Reportes en tiempo real']}
+      />
+      <div
+        className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-8"
+        style={{
+          background:
+            'radial-gradient(900px 500px at 100% 0%, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 60%), var(--color-bg)',
+        }}
+      >
+        <div className={ancho === 'md' ? 'w-full max-w-md' : 'w-full max-w-sm'}>
+          <h1 className="mb-1 text-[22px] font-extrabold tracking-[-0.03em] md:hidden">{titulo}</h1>
+          <div className="mb-5 hidden md:block">
+            <h1 className="text-[28px] font-extrabold tracking-[-0.035em]">{titulo}</h1>
+            {descripcion && <p className="mt-1.5 text-sm text-muted">{descripcion}</p>}
           </div>
+          {descripcion && (
+            <p className="mb-4 text-center text-[13px] text-muted md:hidden">{descripcion}</p>
+          )}
+
+          <Card className="shadow-[0_24px_60px_-28px_rgba(0,0,0,0.25)]">
+            <CardContent className="p-6">{children}</CardContent>
+          </Card>
+
+          {pie && <div className="mt-4 text-center text-[13px] text-muted">{pie}</div>}
+
+          {legal && <PieLegal />}
         </div>
-
-        <Card>
-          <CardContent className="p-5">{children}</CardContent>
-        </Card>
-
-        {pie && <div className="mt-4 text-center text-[13px] text-muted">{pie}</div>}
-
-        {legal && <PieLegal />}
       </div>
     </div>
   );

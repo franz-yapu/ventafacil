@@ -1,5 +1,6 @@
 import { ShieldCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { AuthHero } from '@/components/AuthHero';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePlatformAuth } from '@/features/platform/PlatformAuthProvider';
@@ -33,38 +34,46 @@ export function PlatformLoginPage() {
   }
 
   return (
-    <div className="flex min-h-full">
-      {/* Panel oscuro: marca de plataforma, nunca el logo de un cliente. Quien llega aquí
-          tiene que ver de un vistazo que ésta no es la puerta de ningún negocio. */}
-      <div className="hidden w-[42%] shrink-0 flex-col bg-fg p-10 text-bg md:flex xl:p-14">
+    <div className="flex min-h-full flex-col md:flex-row">
+      <div className="rounded-b-[28px] bg-[#17171e] px-6 pb-8 pt-8 text-white md:hidden">
         <div className="flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-bg text-fg">
+          <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#15151c]">
             <ShieldCheck size={20} />
           </div>
           <span className="text-[17px] font-semibold">VentaFácil · Plataforma</span>
         </div>
-        <div className="mt-auto">
-          <p className="text-[32px] font-bold leading-[1.15] tracking-[-0.035em]">
+        <p className="mt-6 text-[26px] font-extrabold leading-[1.1] tracking-[-0.03em]">
+          Todos los negocios, un solo panel.
+        </p>
+      </div>
+      <AuthHero
+        tono="tinta"
+        imagen="/hero/plataforma.webp"
+        cabecera={
+          <>
+            <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#15151c]">
+              <ShieldCheck size={20} />
+            </div>
+            <span className="text-[17px] font-semibold">VentaFácil · Plataforma</span>
+          </>
+        }
+        titular={
+          <>
             Todos los negocios,
             <br />
             un solo panel.
-          </p>
-          <div className="my-[18px] h-[3px] w-16 rounded-sm bg-primary" />
-          <p className="max-w-[320px] text-sm leading-relaxed opacity-80">
-            Altas, planes, precios, ofertas y estado de cada suscripción. Todo cambio queda en la
-            bitácora de la plataforma.
-          </p>
-        </div>
-      </div>
+          </>
+        }
+        texto="Altas, planes, precios, ofertas y estado de cada suscripción. Todo cambio queda en la bitácora de la plataforma."
+        puntos={[
+          'Ingresos y cartera en vivo',
+          'Planes y ofertas editables',
+          'Bitácora de cada cambio',
+        ]}
+      />
 
       <div className="flex flex-1 flex-col items-center justify-center gap-5 px-4 py-8">
         <div className="w-full max-w-sm motion-safe:animate-rise">
-          <div className="mb-6 flex items-center gap-3 md:hidden">
-            <div className="flex h-12 w-12 items-center justify-center rounded-[14px] bg-fg text-bg">
-              <ShieldCheck size={24} />
-            </div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em]">Plataforma</h1>
-          </div>
           <div className="hidden md:block">
             <h1 className="text-[26px] font-bold tracking-[-0.03em]">Plataforma</h1>
             <p className="mb-6 mt-1.5 text-sm text-muted">Administración de todos los negocios</p>

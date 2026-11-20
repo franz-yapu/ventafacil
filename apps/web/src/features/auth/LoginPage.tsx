@@ -1,6 +1,6 @@
-import { BarChart3, Boxes, WifiOff } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { AuthHero, AuthHeroMovil } from '@/components/AuthHero';
 import { Marca, NombreDeMarca } from '@/components/Marca';
 import { Input } from '@/components/ui/input';
 import { slugDesdeHostname, useAuth } from '@/features/auth/AuthProvider';
@@ -97,69 +97,58 @@ export function LoginPage() {
      * media pantalla y una banda decorativa empujaría los campos fuera de la vista.
      */
     <div className="flex min-h-full flex-col md:flex-row">
-      {/* ── Banda de marca (sólo escritorio) ──
-          A pantalla completa, no una tarjeta flotando: es la primera impresión del
-          negocio y su color tiene que llegar al borde. */}
-      <div className="hidden w-[42%] shrink-0 flex-col bg-primary p-10 text-primary-fg md:flex xl:p-14">
-        <div className="flex items-center gap-3">
-          <Marca size="md" inverso />
-          <NombreDeMarca className="text-[17px] font-semibold" />
-        </div>
-        <div className="mt-auto">
-          <p className="text-[32px] font-bold leading-[1.15] tracking-[-0.035em]">
+      <AuthHeroMovil
+        cabecera={
+          <>
+            <Marca size="md" inverso />
+            <NombreDeMarca className="text-[17px] font-semibold" />
+          </>
+        }
+        titular={
+          <>
             Cobra rápido,
             <br />
             con o sin internet.
-          </p>
-          {/* Filete del color de acento: el mismo gesto que lleva el recibo. */}
-          <div className="my-[18px] h-[3px] w-16 rounded-sm bg-secondary" />
-          {/* Sin `opacity-[.88]`: bajaba el blanco sobre la banda de marca a 4.36:1, por
-              debajo del 4.5 que le toca a un texto de 14px. Es la promesa del producto —
-              lo primero que lee alguien que aún no tiene cuenta— y se leía peor que el
-              resto. La jerarquía ya la da el tamaño. */}
-          <p className="max-w-[300px] text-sm leading-relaxed">
-            Tus ventas se guardan en el equipo y se sincronizan solas cuando vuelve la conexión.
-          </p>
-          <ul className="mt-8 flex flex-col gap-3 border-t border-primary-fg/25 pt-6 text-[14px] font-medium">
-            {[
-              [WifiOff, 'Vende aunque se caiga el internet'],
-              [Boxes, 'Inventario y caja siempre cuadrados'],
-              [BarChart3, 'Reportes de lo que pasa en cada sucursal'],
-            ].map(([Icon, texto], i) => {
-              const I = Icon as typeof WifiOff;
-              return (
-                <li
-                  key={texto as string}
-                  className="flex items-center gap-3 motion-safe:animate-rise"
-                  style={{ animationDelay: `${120 + i * 90}ms` }}
-                >
-                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fg/15">
-                    <I size={16} aria-hidden="true" />
-                  </span>
-                  {texto as string}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      </div>
+          </>
+        }
+      />
+      <AuthHero
+        cabecera={
+          <>
+            <Marca size="md" inverso />
+            <NombreDeMarca className="text-[17px] font-semibold" />
+          </>
+        }
+        titular={
+          <>
+            Cobra rápido,
+            <br />
+            con o sin internet.
+          </>
+        }
+        texto="Tus ventas se guardan en el equipo y se sincronizan solas cuando vuelve la conexión."
+        puntos={[
+          'Vende aunque se caiga el internet',
+          'Inventario y caja siempre cuadrados',
+          'Reportes de cada sucursal al instante',
+        ]}
+      />
 
       {/* ── Formulario ──
           Centrado en el espacio que queda y con ancho de lectura propio: antes se
           pegaba al borde de la banda y dejaba una franja muerta a la derecha. */}
-      <div className="flex flex-1 flex-col px-5 pb-5 pt-8 md:items-center md:justify-center md:bg-surface md:p-10">
-        <div className="flex w-full flex-1 flex-col md:max-w-[440px] md:flex-none">
-          {/* En móvil la marca va aquí arriba, centrada, en lugar de la banda. */}
-          <div className="mb-7 flex flex-col items-center gap-2.5 md:hidden">
-            <Marca size="xl" />
-            <NombreDeMarca className="text-[17px] font-semibold" />
-            <div className="h-[3px] w-11 rounded-sm bg-secondary" />
-          </div>
-
+      <div
+        className="flex flex-1 flex-col px-5 pb-5 pt-6 md:items-center md:justify-center md:p-10"
+        style={{
+          background:
+            'radial-gradient(900px 500px at 100% 0%, color-mix(in srgb, var(--color-primary) 9%, transparent), transparent 60%), var(--color-bg)',
+        }}
+      >
+        <div className="flex w-full flex-1 flex-col md:max-w-[440px] md:flex-none md:rounded-[20px] md:border md:border-border md:bg-surface md:p-9 md:shadow-[0_24px_60px_-28px_rgba(0,0,0,0.25)]">
           <div className="hidden motion-safe:animate-rise md:block">
-            <h1 className="text-[26px] font-bold tracking-[-0.03em]">Entrar</h1>
+            <h1 className="text-[28px] font-extrabold tracking-[-0.035em]">Bienvenido de nuevo</h1>
             <p className="mb-6 mt-1.5 text-sm text-muted">
-              Usa el usuario que te dio tu administrador.
+              Entra con el usuario que te dio tu administrador.
             </p>
           </div>
 
