@@ -1,7 +1,7 @@
-import { LIMIT_LABELS, limitLabel, type LimitKey } from '@ventafacil/shared';
+import { LIMIT_LABELS, type LimitKey } from '@ventafacil/shared';
 import { useQuery } from '@tanstack/react-query';
-import { Check } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { PlanCard } from '@/features/subscription/PlanCard';
 import { Page, PageHeader } from '@/components/ui/page';
 import type { PlanInfo } from '@/features/subscription/SubscriptionProvider';
 import { useSubscription } from '@/features/subscription/SubscriptionProvider';
@@ -16,12 +16,6 @@ const ETIQUETA_ESTADO: Record<string, string> = {
   suspended: 'Suspendida',
   cancelled: 'Cancelada',
 };
-
-/** "3 sucursales" · "Sucursales sin límite". */
-function cupo(key: LimitKey, max: number | null): string {
-  if (max === null) return `${LIMIT_LABELS[key]} sin límite`;
-  return `${max} ${limitLabel(key, max)}`;
-}
 
 /** Barra de uso de un cupo. Sin tope, se muestra el número y ya. */
 function Cupo({ nombre, used, limit }: { nombre: string; used: number; limit: number | null }) {
@@ -114,30 +108,15 @@ export function SubscriptionPage() {
       {planes && planes.length > 0 && (
         <>
           <h2 className="mt-2 text-lg font-semibold">Planes disponibles</h2>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {planes.map((p) => {
-              const actual = p.code === sub?.plan?.code;
-              return (
-                <Card key={p.code} className={cn(actual && 'border-primary')}>
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <span className="font-semibold">{p.name}</span>
-                      {actual && <Check size={16} className="text-primary" />}
-                    </div>
-                    <div className="mt-1 text-lg font-bold">
-                      {p.currency} {p.priceMonthly}
-                      <span className="text-[13px] font-normal text-muted"> /mes</span>
-                    </div>
-                    <p className="mt-2 text-[13px] text-muted">{p.description}</p>
-                    <ul className="mt-3 space-y-1 text-[13px] text-muted">
-                      <li>{cupo('locations', p.maxLocations)}</li>
-                      <li>{cupo('users', p.maxUsers)}</li>
-                      <li>{cupo('products', p.maxProducts)}</li>
-                    </ul>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <div className="grid gap-4 sm:grid-cols-3">
+            {planes.map((p) => (
+              <PlanCard
+                key={p.code}
+                plan={p}
+                actual={p.code === sub?.plan?.code}
+                precioFijo={p.code === sub?.plan?.code ? sub.plan.priceMonthly : undefined}
+              />
+            ))}
           </div>
           <p className="text-[13px] text-muted">
             Para cambiar de plan, contáctanos. El cobro automático llegará más adelante.

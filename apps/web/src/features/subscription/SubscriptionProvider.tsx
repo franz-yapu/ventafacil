@@ -9,6 +9,9 @@ export interface PlanInfo {
   name: string;
   description: string;
   priceMonthly: string;
+  /** Precio de lista; si supera a `priceMonthly` el plan está en oferta. */
+  regularPrice?: string | null;
+  offerLabel?: string | null;
   currency: string;
   maxLocations: number | null;
   maxUsers: number | null;

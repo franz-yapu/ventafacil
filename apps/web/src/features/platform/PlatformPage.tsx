@@ -1,6 +1,6 @@
 import type { EffectiveStatus, SubscriptionStatus } from '@ventafacil/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Copy, KeyRound, LogOut, Search, ShieldCheck, UserCog, Users } from 'lucide-react';
+import { Copy, KeyRound, LogOut, Search, ShieldCheck, Tag, UserCog, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,6 +10,7 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { MiCuentaModal } from '@/features/platform/MiCuentaModal';
 import { OperadoresModal } from '@/features/platform/OperadoresModal';
+import { PlanesModal } from '@/features/platform/PlanesModal';
 import { usePlatformAuth } from '@/features/platform/PlatformAuthProvider';
 import type { PlanInfo } from '@/features/subscription/SubscriptionProvider';
 import { platformApi } from '@/lib/api';
@@ -158,6 +159,7 @@ export function PlatformPage() {
   const [abierto, setAbierto] = useState<string | null>(null);
   const [miCuenta, setMiCuenta] = useState(false);
   const [operadores, setOperadores] = useState(false);
+  const [planesAbierto, setPlanesAbierto] = useState(false);
 
   const { data: metrics } = useQuery({
     queryKey: ['platform', 'metrics'],
@@ -212,6 +214,15 @@ export function PlatformPage() {
               className="h-9 px-3 text-[13px]"
             >
               <Users size={15} /> Operadores
+            </Button>
+          )}
+          {admin?.isOwner && (
+            <Button
+              variant="outline"
+              onClick={() => setPlanesAbierto(true)}
+              className="h-9 px-3 text-[13px]"
+            >
+              <Tag size={15} /> Planes
             </Button>
           )}
           <Button
@@ -303,6 +314,7 @@ export function PlatformPage() {
       )}
       {miCuenta && <MiCuentaModal onClose={() => setMiCuenta(false)} />}
       {operadores && <OperadoresModal onClose={() => setOperadores(false)} />}
+      {planesAbierto && <PlanesModal onClose={() => setPlanesAbierto(false)} />}
     </div>
   );
 }
