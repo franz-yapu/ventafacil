@@ -28,6 +28,8 @@ export interface TenantAccess {
     name: string;
     description: string;
     priceMonthly: string;
+    regularPrice: string | null;
+    offerLabel: string | null;
     currency: string;
     maxLocations: number | null;
     maxUsers: number | null;
@@ -72,6 +74,9 @@ async function leerAcceso(businessId: string): Promise<TenantAccess> {
       name: schema.plan.name,
       description: schema.plan.description,
       priceMonthly: schema.plan.priceMonthly,
+      lockedPrice: schema.subscription.lockedPrice,
+      regularPrice: schema.plan.regularPrice,
+      offerLabel: schema.plan.offerLabel,
       currency: schema.plan.currency,
       maxLocations: schema.plan.maxLocations,
       maxUsers: schema.plan.maxUsers,
@@ -100,7 +105,10 @@ async function leerAcceso(businessId: string): Promise<TenantAccess> {
       code: row.code,
       name: row.name,
       description: row.description,
-      priceMonthly: row.priceMonthly,
+      // Lo que paga ESTE negocio: el precio que se le mantiene, no el actual del catálogo.
+      priceMonthly: row.lockedPrice ?? row.priceMonthly,
+      regularPrice: row.regularPrice,
+      offerLabel: row.offerLabel,
       currency: row.currency,
       maxLocations: row.maxLocations,
       maxUsers: row.maxUsers,

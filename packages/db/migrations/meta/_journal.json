@@ -148,6 +148,13 @@
       "when": 1786650840453,
       "tag": "0020_tour_guiado",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1786737240453,
+      "tag": "0021_ofertas_y_precio_fijo",
+      "breakpoints": true
     }
   ]
 }

@@ -68,6 +68,9 @@ export interface PlanDefinition {
   name: string;
   /** Precio mensual como string decimal (nunca float). */
   priceMonthly: string;
+  /** Precio de lista; si es mayor que `priceMonthly`, el plan está en oferta. */
+  regularPrice?: string | null;
+  offerLabel?: string | null;
   currency: string;
   description: string;
   maxLocations: number | null;
@@ -89,14 +92,19 @@ export const DEFAULT_PLAN_CODE: PlanCode = 'basico';
  * Catálogo. Los PRECIOS son una decisión de negocio y se ajustan aquí; el resto del
  * código no tiene ni un número escrito a mano.
  */
+/** Rótulo de la oferta vigente (editable desde el panel de plataforma). */
+const OFERTA = 'Oferta de este mes';
+
 export const PLAN_CATALOG: PlanDefinition[] = [
   {
     code: 'basico',
     name: 'Básico',
     priceMonthly: '74.50',
+    regularPrice: '85.50',
+    offerLabel: OFERTA,
     currency: 'BOB',
-    description: 'Para un negocio con una sola tienda.',
-    maxLocations: 1,
+    description: 'Para un negocio con hasta dos sucursales.',
+    maxLocations: 2,
     maxUsers: 3,
     maxProducts: 500,
     // La bitácora entra en TODOS los planes. Es el único control que tiene un dueño
@@ -111,6 +119,8 @@ export const PLAN_CATALOG: PlanDefinition[] = [
     code: 'pro',
     name: 'Pro',
     priceMonthly: '149.50',
+    regularPrice: '172.00',
+    offerLabel: OFERTA,
     currency: 'BOB',
     description: 'Varias sucursales, con panel de análisis y bitácora de actividad.',
     maxLocations: 3,
@@ -124,6 +134,8 @@ export const PLAN_CATALOG: PlanDefinition[] = [
     code: 'ilimitado',
     name: 'Ilimitado',
     priceMonthly: '299.50',
+    regularPrice: '344.50',
+    offerLabel: OFERTA,
     currency: 'BOB',
     description: 'Sin límites de sucursales, usuarios ni productos.',
     maxLocations: null,
@@ -324,4 +336,15 @@ export function avisoDePermanencia(meses: number): string | null {
     `Ejemplo: si contratas 5 años y te vas a los 2, quedan 3 sin usar y se te devuelve ` +
     `la mitad de esos 3.`
   );
+}
+
+/** ¿El plan está en oferta? Hay oferta cuando el precio de lista supera lo que se cobra. */
+export function enOferta(p: { priceMonthly: string; regularPrice?: string | null }): boolean {
+  return p.regularPrice != null && Number(p.regularPrice) > Number(p.priceMonthly);
+}
+
+/** Porcentaje de ahorro de la oferta, entero (0 si no hay oferta). */
+export function ahorroPct(p: { priceMonthly: string; regularPrice?: string | null }): number {
+  if (!enOferta(p)) return 0;
+  return Math.round((1 - Number(p.priceMonthly) / Number(p.regularPrice)) * 100);
 }

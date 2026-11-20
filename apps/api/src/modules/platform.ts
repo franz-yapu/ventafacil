@@ -12,7 +12,7 @@ import {
   type EffectiveStatus,
 } from '@ventafacil/shared';
 import argon2 from 'argon2';
-import { and, asc, count, desc, eq, ilike, ne, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, ne, or, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomInt } from 'node:crypto';
 import { z } from 'zod';
@@ -20,7 +20,7 @@ import { env } from '../env.js';
 import { enviarCorreo, urlDelNegocio } from '../lib/mailer.js';
 import { violaUnica } from '../lib/pg-errores.js';
 import { revocarTodo } from '../lib/sessions.js';
-import { invalidateAccess } from '../lib/subscription.js';
+import { clearAccessCache, invalidateAccess } from '../lib/subscription.js';
 
 /**
  * Panel de plataforma: el operador (tú) por encima de todos los negocios.
@@ -35,6 +35,21 @@ import { invalidateAccess } from '../lib/subscription.js';
 const loginBody = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+});
+
+const dinero = z
+  .string()
+  .regex(/^\d{1,7}(\.\d{1,2})?$/, 'Precio inválido (ej. 74.50)');
+const cupo = z.number().int().min(1, 'El cupo mínimo es 1').max(1_000_000).nullable();
+
+/** Lo único editable de un plan desde el panel: precio, oferta y cupos. */
+const updatePlanBody = z.object({
+  priceMonthly: dinero.optional(),
+  regularPrice: dinero.nullable().optional(),
+  offerLabel: z.string().trim().max(40).nullable().optional(),
+  maxLocations: cupo.optional(),
+  maxUsers: cupo.optional(),
+  maxProducts: cupo.optional(),
 });
 
 const updateSubBody = z.object({
@@ -572,7 +587,7 @@ export async function platformRoutes(app: FastifyInstance) {
         createdAt: schema.business.createdAt,
         planCode: schema.subscription.planCode,
         planName: schema.plan.name,
-        priceMonthly: schema.plan.priceMonthly,
+        priceMonthly: sql<string>`coalesce(${schema.subscription.lockedPrice}, ${schema.plan.priceMonthly})`,
         currency: schema.plan.currency,
         status: schema.subscription.status,
         trialEndsAt: schema.subscription.trialEndsAt,
@@ -952,7 +967,10 @@ export async function platformRoutes(app: FastifyInstance) {
       if (!q.success) return reply.code(400).send({ data: null, error: 'Parámetros inválidos' });
 
       const [sub] = await db
-        .select({ planCode: schema.subscription.planCode })
+        .select({
+          planCode: schema.subscription.planCode,
+          lockedPrice: schema.subscription.lockedPrice,
+        })
         .from(schema.subscription)
         .where(eq(schema.subscription.businessId, id))
         .limit(1);
@@ -972,7 +990,10 @@ export async function platformRoutes(app: FastifyInstance) {
       if (!planFila) return reply.code(400).send({ data: null, error: 'Ese plan no existe' });
 
       const opciones = CICLOS.map((c) => ({
-        ...cotizar(planFila.priceMonthly, c.meses),
+        ...cotizar(
+          codigo === sub?.planCode && sub?.lockedPrice ? sub.lockedPrice : planFila.priceMonthly,
+          c.meses,
+        ),
         nombre: c.nombre,
         aviso: avisoDePermanencia(c.meses),
       }));
@@ -1080,7 +1101,18 @@ export async function platformRoutes(app: FastifyInstance) {
 
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       const d = parsed.data;
-      if (d.planCode !== undefined) patch.planCode = d.planCode;
+      if (d.planCode !== undefined) {
+        patch.planCode = d.planCode;
+        if (d.planCode !== before?.planCode) {
+          // Plan nuevo -> precio vigente del plan nuevo (el que ve cualquier cliente nuevo).
+          const [pn] = await db
+            .select({ priceMonthly: schema.plan.priceMonthly })
+            .from(schema.plan)
+            .where(eq(schema.plan.code, d.planCode))
+            .limit(1);
+          patch.lockedPrice = pn?.priceMonthly ?? null;
+        }
+      }
       if (d.status !== undefined) {
         patch.status = d.status;
         // La fecha de baja la pone el servidor: es lo que después cuenta como churn.
@@ -1150,7 +1182,9 @@ export async function platformRoutes(app: FastifyInstance) {
           (d.planCode === undefined || d.planCode === before?.planCode);
 
         if (!mismoCiclo) {
-          const q = cotizar(planFila.priceMonthly, d.billingMonths);
+          const mantiene =
+            (d.planCode === undefined || d.planCode === before?.planCode) && before?.lockedPrice;
+          const q = cotizar(mantiene ? before!.lockedPrice! : planFila.priceMonthly, d.billingMonths);
           const desde = new Date();
           patch.billingMonths = q.meses;
           patch.billedAmount = q.total;
@@ -1190,6 +1224,13 @@ export async function platformRoutes(app: FastifyInstance) {
           .values({
             businessId: id,
             planCode: d.planCode,
+            lockedPrice: (
+              await db
+                .select({ p: schema.plan.priceMonthly })
+                .from(schema.plan)
+                .where(eq(schema.plan.code, d.planCode))
+                .limit(1)
+            )[0]?.p ?? null,
             status: d.status ?? 'active',
             trialEndsAt: d.trialEndsAt ? new Date(d.trialEndsAt) : null,
             suspendedReason: d.suspendedReason ?? null,
@@ -1210,6 +1251,69 @@ export async function platformRoutes(app: FastifyInstance) {
     },
   );
 
+  // ── Catálogo de planes (precio, oferta y cupos) ──────────────
+
+  /** Todos los planes, también los internos: el panel edita precio, oferta y cupos. */
+  app.get('/platform/plans', { preHandler: app.requirePlatform }, async (_req, reply) => {
+    const rows = await db.select().from(schema.plan).orderBy(asc(schema.plan.sortOrder));
+    return reply.send({ data: rows, error: null });
+  });
+
+  /**
+   * Editar un plan: SOLO precio, oferta y cupos. Afecta únicamente a los negocios nuevos:
+   * los que ya contrataron conservan su `locked_price`. Los cupos sí rigen para todos.
+   */
+  app.patch(
+    '/platform/plans/:code',
+    { preHandler: [app.requirePlatform, soloPrincipalComercial] },
+    async (req, reply) => {
+      const { code } = req.params as { code: string };
+      const parsed = updatePlanBody.safeParse(req.body);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ data: null, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
+      }
+      const d = parsed.data;
+      const [before] = await db
+        .select()
+        .from(schema.plan)
+        .where(eq(schema.plan.code, code))
+        .limit(1);
+      if (!before) return reply.code(404).send({ data: null, error: 'Plan no encontrado' });
+
+      const precio = d.priceMonthly ?? before.priceMonthly;
+      const lista = d.regularPrice === undefined ? before.regularPrice : d.regularPrice;
+      if (lista != null && Number(lista) <= Number(precio)) {
+        return reply.code(400).send({
+          data: null,
+          error: 'El precio de lista debe ser mayor que el precio de oferta (o déjalo vacío)',
+        });
+      }
+
+      const patch: Record<string, unknown> = {};
+      if (d.priceMonthly !== undefined) patch.priceMonthly = d.priceMonthly;
+      if (d.regularPrice !== undefined) patch.regularPrice = d.regularPrice;
+      if (d.offerLabel !== undefined) patch.offerLabel = d.offerLabel;
+      if (d.maxLocations !== undefined) patch.maxLocations = d.maxLocations;
+      if (d.maxUsers !== undefined) patch.maxUsers = d.maxUsers;
+      if (d.maxProducts !== undefined) patch.maxProducts = d.maxProducts;
+      if (Object.keys(patch).length === 0) {
+        return reply.code(400).send({ data: null, error: 'No hay nada que cambiar' });
+      }
+
+      const [after] = await db
+        .update(schema.plan)
+        .set(patch)
+        .where(eq(schema.plan.code, code))
+        .returning();
+
+      clearAccessCache(); // los cupos cambian para todos: que la caché no sirva lo viejo
+      await registrar(req, { action: 'plan_update', before, after });
+      return reply.send({ data: after, error: null });
+    },
+  );
+
   // ── Métricas ─────────────────────────────────────────────────
 
   /**
@@ -1225,7 +1329,7 @@ export async function platformRoutes(app: FastifyInstance) {
         trialEndsAt: schema.subscription.trialEndsAt,
         cancelledAt: schema.subscription.cancelledAt,
         createdAt: schema.subscription.createdAt,
-        priceMonthly: schema.plan.priceMonthly,
+        priceMonthly: sql<string>`coalesce(${schema.subscription.lockedPrice}, ${schema.plan.priceMonthly})`,
         planCode: schema.plan.code,
       })
       .from(schema.subscription)

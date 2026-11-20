@@ -43,6 +43,8 @@ export async function subscriptionRoutes(app: FastifyInstance) {
         name: schema.plan.name,
         description: schema.plan.description,
         priceMonthly: schema.plan.priceMonthly,
+        regularPrice: schema.plan.regularPrice,
+        offerLabel: schema.plan.offerLabel,
         currency: schema.plan.currency,
         maxLocations: schema.plan.maxLocations,
         maxUsers: schema.plan.maxUsers,

@@ -75,9 +75,9 @@ export async function setup() {
     // business_id, así que `resetDb()` (que borra los negocios) no se la lleva.
     for (const p of PLAN_CATALOG) {
       await owner`
-        insert into plan (code, name, description, price_monthly, currency,
+        insert into plan (code, name, description, price_monthly, regular_price, offer_label, currency,
                           max_locations, max_users, max_products, features, is_public, sort_order)
-        values (${p.code}, ${p.name}, ${p.description}, ${p.priceMonthly}, ${p.currency},
+        values (${p.code}, ${p.name}, ${p.description}, ${p.priceMonthly}, ${p.regularPrice ?? null}, ${p.offerLabel ?? null}, ${p.currency},
                 ${p.maxLocations}, ${p.maxUsers}, ${p.maxProducts},
                 ${JSON.stringify(p.features)}::jsonb, ${p.isPublic}, ${p.sortOrder})
         on conflict (code) do nothing

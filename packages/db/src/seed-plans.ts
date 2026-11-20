@@ -5,7 +5,7 @@
  *   pnpm --filter @ventafacil/db seed-plans
  *
  * Es idempotente: se puede correr en cada despliegue. Actualiza los planes que ya
- * están (precios y límites salen de `PLAN_CATALOG`) y sólo inserta suscripciones
+ * están (solo nombre, texto y funciones; precios, ofertas y cupos se editan en el panel) y sólo inserta suscripciones
  * para los negocios que todavía no tienen.
  *
  * Los negocios preexistentes entran al plan interno `propietario`: ilimitado, sin
@@ -29,6 +29,8 @@ async function main() {
       name: p.name,
       description: p.description,
       priceMonthly: p.priceMonthly,
+      regularPrice: p.regularPrice ?? null,
+      offerLabel: p.offerLabel ?? null,
       currency: p.currency,
       maxLocations: p.maxLocations,
       maxUsers: p.maxUsers,
@@ -37,7 +39,18 @@ async function main() {
       isPublic: p.isPublic,
       sortOrder: p.sortOrder,
     };
-    await db.insert(s.plan).values(row).onConflictDoUpdate({ target: s.plan.code, set: row });
+    // Precio, oferta y cupos se editan desde el panel de plataforma: aquí solo se insertan la
+    // primera vez y NUNCA se pisan. Lo demás (nombre, texto, funciones) sí sale del catálogo.
+    const {
+      priceMonthly: _p,
+      regularPrice: _r,
+      offerLabel: _o,
+      maxLocations: _l,
+      maxUsers: _u,
+      maxProducts: _m,
+      ...editable
+    } = row;
+    await db.insert(s.plan).values(row).onConflictDoUpdate({ target: s.plan.code, set: editable });
   }
   console.log(`✓ Catálogo de planes al día (${PLAN_CATALOG.length} planes).`);
 

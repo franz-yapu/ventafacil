@@ -87,6 +87,9 @@ export const plan = pgTable('plan', {
   name: text('name').notNull(),
   description: text('description').notNull().default(''),
   priceMonthly: numeric('price_monthly', { precision: 12, scale: 2 }).notNull().default('0'),
+  // Precio de lista. Si es mayor que `priceMonthly` hay OFERTA: se cobra `priceMonthly`.
+  regularPrice: numeric('regular_price', { precision: 12, scale: 2 }),
+  offerLabel: text('offer_label'),
   currency: text('currency').notNull().default('BOB'),
   // null = sin límite.
   maxLocations: integer('max_locations'),
@@ -127,6 +130,8 @@ export const subscription = pgTable('subscription', {
   billedAmount: numeric('billed_amount', { precision: 12, scale: 2 }),
   /** Cuándo empezó el ciclo contratado: con esto y `billingMonths` sale lo usado. */
   cycleStartedAt: timestamp('cycle_started_at', { withTimezone: true }),
+  // Precio mensual que se le mantiene a este negocio (cambiar el precio de un plan no le afecta).
+  lockedPrice: numeric('locked_price', { precision: 12, scale: 2 }),
   suspendedReason: text('suspended_reason'),
   cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
