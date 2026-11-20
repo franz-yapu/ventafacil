@@ -1,3 +1,4 @@
+import { BarChart3, Boxes, WifiOff } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Marca, NombreDeMarca } from '@/components/Marca';
@@ -119,6 +120,27 @@ export function LoginPage() {
           <p className="max-w-[300px] text-sm leading-relaxed">
             Tus ventas se guardan en el equipo y se sincronizan solas cuando vuelve la conexión.
           </p>
+          <ul className="mt-8 flex flex-col gap-3 border-t border-primary-fg/25 pt-6 text-[14px] font-medium">
+            {[
+              [WifiOff, 'Vende aunque se caiga el internet'],
+              [Boxes, 'Inventario y caja siempre cuadrados'],
+              [BarChart3, 'Reportes de lo que pasa en cada sucursal'],
+            ].map(([Icon, texto], i) => {
+              const I = Icon as typeof WifiOff;
+              return (
+                <li
+                  key={texto as string}
+                  className="flex items-center gap-3 motion-safe:animate-rise"
+                  style={{ animationDelay: `${120 + i * 90}ms` }}
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary-fg/15">
+                    <I size={16} aria-hidden="true" />
+                  </span>
+                  {texto as string}
+                </li>
+              );
+            })}
+          </ul>
         </div>
       </div>
 
@@ -134,14 +156,18 @@ export function LoginPage() {
             <div className="h-[3px] w-11 rounded-sm bg-secondary" />
           </div>
 
-          <div className="hidden md:block">
+          <div className="hidden motion-safe:animate-rise md:block">
             <h1 className="text-[26px] font-bold tracking-[-0.03em]">Entrar</h1>
             <p className="mb-6 mt-1.5 text-sm text-muted">
               Usa el usuario que te dio tu administrador.
             </p>
           </div>
 
-          <form onSubmit={onSubmit} className="flex flex-col">
+          <form
+            onSubmit={onSubmit}
+            className="flex flex-col motion-safe:animate-rise"
+            style={{ animationDelay: '80ms' }}
+          >
             <label htmlFor="usuario" className="mb-[7px] text-[13px] font-semibold">
               Usuario
             </label>

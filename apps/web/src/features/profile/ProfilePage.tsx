@@ -111,115 +111,123 @@ export function ProfilePage() {
   }
 
   return (
-    <Page className="mx-auto w-full max-w-lg">
+    <Page className="mx-auto w-full max-w-lg lg:max-w-5xl">
       <PageHeader
         titulo="Mi perfil"
         descripcion="Tus datos, tu contraseña y las sesiones que tienes abiertas."
       />
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-fg">
-              {(user?.name ?? 'U').charAt(0).toUpperCase()}
+      <div className="grid items-start gap-4 lg:grid-cols-[1.15fr_1fr]">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary text-lg font-bold text-primary-fg">
+                {(user?.name ?? 'U').charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <div className="font-semibold">{user?.name}</div>
+                <div className="text-sm text-muted">{roleLabel}</div>
+              </div>
             </div>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-3">
             <div>
-              <div className="font-semibold">{user?.name}</div>
-              <div className="text-sm text-muted">{roleLabel}</div>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3">
-          <div>
-            <label className="text-sm text-muted">Nombre</label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Tu nombre" />
-          </div>
-
-          <div>
-            <label className="text-sm text-muted">Correo</label>
-            <Input
-              type="email"
-              autoCapitalize="none"
-              autoCorrect="off"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="tu@correo.com"
-            />
-            <p className="mt-1 text-xs text-muted">
-              {user?.emailVerified
-                ? 'Confirmado. Podrás recuperar tu contraseña si la olvidas.'
-                : 'Sin un correo confirmado no podrás recuperar tu contraseña.'}
-            </p>
-          </div>
-
-          <div className="mt-1 border-t border-border pt-3">
-            <p className="mb-2 text-sm font-semibold">Cambiar contraseña</p>
-            <p className="mb-3 text-xs text-muted">Déjalo en blanco si no quieres cambiarla.</p>
-            <div className="flex flex-col gap-2">
-              <PasswordField
-                value={currentPassword}
-                onChange={setCurrentPassword}
-                placeholder="Contraseña actual"
-              />
-              <PasswordField
-                value={newPassword}
-                onChange={setNewPassword}
-                placeholder="Nueva contraseña (mín. 6)"
-              />
-              <PasswordField
-                value={confirmPassword}
-                onChange={setConfirmPassword}
-                placeholder="Repetir nueva contraseña"
+              <label className="text-sm text-muted">Nombre</label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Tu nombre"
               />
             </div>
-          </div>
 
-          {error && <p className="text-sm text-danger">{error}</p>}
-          {ok && <p className="text-sm text-success">Cambios guardados.</p>}
+            <div>
+              <label className="text-sm text-muted">Correo</label>
+              <Input
+                type="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@correo.com"
+              />
+              <p className="mt-1 text-xs text-muted">
+                {user?.emailVerified
+                  ? 'Confirmado. Podrás recuperar tu contraseña si la olvidas.'
+                  : 'Sin un correo confirmado no podrás recuperar tu contraseña.'}
+              </p>
+            </div>
 
-          <Button disabled={busy} onClick={onSave}>
-            {busy ? 'Guardando…' : 'Guardar cambios'}
-          </Button>
-        </CardContent>
-      </Card>
+            <div className="mt-1 border-t border-border pt-3">
+              <p className="mb-2 text-sm font-semibold">Cambiar contraseña</p>
+              <p className="mb-3 text-xs text-muted">Déjalo en blanco si no quieres cambiarla.</p>
+              <div className="flex flex-col gap-2">
+                <PasswordField
+                  value={currentPassword}
+                  onChange={setCurrentPassword}
+                  placeholder="Contraseña actual"
+                />
+                <PasswordField
+                  value={newPassword}
+                  onChange={setNewPassword}
+                  placeholder="Nueva contraseña (mín. 6)"
+                />
+                <PasswordField
+                  value={confirmPassword}
+                  onChange={setConfirmPassword}
+                  placeholder="Repetir nueva contraseña"
+                />
+              </div>
+            </div>
 
-      {/* El modo de pantalla es de la PERSONA y de su aparato, no del negocio, así que su
+            {error && <p className="text-sm text-danger">{error}</p>}
+            {ok && <p className="text-sm text-success">Cambios guardados.</p>}
+
+            <Button disabled={busy} onClick={onSave}>
+              {busy ? 'Guardando…' : 'Guardar cambios'}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col gap-4">
+          {/* El modo de pantalla es de la PERSONA y de su aparato, no del negocio, así que su
           sitio natural es aquí: la única pantalla que ve todo el mundo. En Configuración
           sigue estando, pero esa ruta es sólo del dueño. */}
-      <Card>
-        <CardContent className="p-4">
-          <ModoSelector />
-        </CardContent>
-      </Card>
+          <Card>
+            <CardContent className="p-4">
+              <ModoSelector />
+            </CardContent>
+          </Card>
 
-      {/* La puerta de vuelta al recorrido guiado. Aquí, y no sólo en el pie del menú,
+          {/* La puerta de vuelta al recorrido guiado. Aquí, y no sólo en el pie del menú,
           porque en un teléfono no hay barra lateral: ésta es la única pantalla desde la
           que un vendedor puede volver a pedirlo. */}
-      <Card>
-        <CardContent className="p-4">
-          <BotonAyuda />
-        </CardContent>
-      </Card>
+          <Card>
+            <CardContent className="p-4">
+              <BotonAyuda />
+            </CardContent>
+          </Card>
 
-      <Button variant="danger" onClick={onLogout}>
-        <LogOut size={18} /> Cerrar sesión
-      </Button>
-
-      <Card>
-        <CardContent className="flex flex-col gap-2 p-4">
-          <p className="text-sm font-semibold">Sesiones en otros dispositivos</p>
-          <p className="text-xs text-muted">
-            Si crees que alguien más entró con tu cuenta, ciérralas todas. Tendrás que volver a
-            entrar aquí también.
-          </p>
-          <Button variant="outline" onClick={onLogoutEverywhere}>
-            <ShieldOff size={16} />
-            {confirmarTodos
-              ? 'Confirmar: cerrar en todos'
-              : 'Cerrar sesión en todos los dispositivos'}
+          <Button variant="danger" onClick={onLogout}>
+            <LogOut size={18} /> Cerrar sesión
           </Button>
-        </CardContent>
-      </Card>
+
+          <Card>
+            <CardContent className="flex flex-col gap-2 p-4">
+              <p className="text-sm font-semibold">Sesiones en otros dispositivos</p>
+              <p className="text-xs text-muted">
+                Si crees que alguien más entró con tu cuenta, ciérralas todas. Tendrás que volver a
+                entrar aquí también.
+              </p>
+              <Button variant="outline" onClick={onLogoutEverywhere}>
+                <ShieldOff size={16} />
+                {confirmarTodos
+                  ? 'Confirmar: cerrar en todos'
+                  : 'Cerrar sesión en todos los dispositivos'}
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </Page>
   );
 }

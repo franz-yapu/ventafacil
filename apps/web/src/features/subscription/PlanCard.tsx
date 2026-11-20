@@ -81,11 +81,16 @@ export function PlanCard({
       <p className="mt-3 text-[13px] text-muted">{plan.description}</p>
       <ul className="mt-4 space-y-1.5 border-t border-border pt-4 text-[13px]">
         {(['locations', 'users', 'products'] as LimitKey[]).map((k) => {
-          const max = k === 'locations' ? plan.maxLocations : k === 'users' ? plan.maxUsers : plan.maxProducts;
+          const max =
+            k === 'locations'
+              ? plan.maxLocations
+              : k === 'users'
+                ? plan.maxUsers
+                : plan.maxProducts;
           return (
             <li key={k} className="flex items-center gap-2">
               <Check size={14} className="shrink-0 text-primary" aria-hidden="true" />
-              {cupo(k, max)}
+              <span className="first-letter:uppercase">{cupo(k, max)}</span>
             </li>
           );
         })}

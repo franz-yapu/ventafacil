@@ -36,6 +36,17 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // Entrada de las partes de una pantalla: suben un poco y aparecen. El retraso
+      // escalonado sale de `--d`; con movimiento reducido no hay animación (motion-safe).
+      keyframes: {
+        rise: {
+          from: { opacity: '0', transform: 'translateY(12px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+      },
+      animation: {
+        rise: 'rise 520ms cubic-bezier(0.23, 1, 0.32, 1) both',
+      },
       colors: {
         primary: {
           DEFAULT: token('--color-primary'),

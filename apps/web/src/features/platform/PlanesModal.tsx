@@ -39,11 +39,13 @@ export function PlanesModal({ onClose }: { onClose: () => void }) {
     <Modal open onClose={onClose} title="Planes y precios">
       <div className="flex flex-col gap-4">
         <p className="text-[13px] text-muted">
-          Los cambios de precio y de oferta solo aplican a quien contrate desde ahora: los
-          negocios que ya pagan mantienen su precio. Los cupos sí rigen para todos.
+          Los cambios de precio y de oferta solo aplican a quien contrate desde ahora: los negocios
+          que ya pagan mantienen su precio. Los cupos sí rigen para todos.
         </p>
         {isLoading && <div className="text-muted">Cargando…</div>}
-        {planes?.map((p) => <PlanForm key={p.code} plan={p} />)}
+        {planes?.map((p) => (
+          <PlanForm key={p.code} plan={p} />
+        ))}
         <Button onClick={onClose}>Cerrar</Button>
       </div>
     </Modal>
@@ -122,7 +124,7 @@ function PlanForm({ plan }: { plan: PlanFila }) {
             onChange={(e) => setLista(e.target.value)}
           />
         </label>
-        <label className={campo}>
+        <label className={`${campo} col-span-2 sm:col-span-3`}>
           Rótulo de la oferta
           <Input
             value={rotulo}
