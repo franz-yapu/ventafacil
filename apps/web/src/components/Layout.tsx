@@ -87,7 +87,7 @@ const sideItem = (isActive: boolean) =>
 // sólo el ícono y la etiqueta cambian de color (calcado del prototipo).
 const bottomItem = (isActive: boolean) =>
   cn(
-    'flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors',
+    'flex min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-semibold leading-none transition-colors',
     isActive ? 'text-primary' : 'text-muted',
   );
 

@@ -148,24 +148,24 @@ export function SalesPage() {
           <option value="completed">{SALE_STATUS_LABELS.completed}</option>
           <option value="cancelled">{SALE_STATUS_LABELS.cancelled}</option>
         </Select>
-        <div className="flex items-center gap-1">
-          <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+          <label className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted sm:flex-none">
             Desde
             <Input
               type="date"
               filter
-              className="max-w-[10rem]"
+              className="min-w-0 flex-1 sm:max-w-[10rem]"
               value={from}
               max={to || undefined}
               onChange={(e) => setFrom(e.target.value)}
             />
           </label>
-          <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+          <label className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted sm:flex-none">
             Hasta
             <Input
               type="date"
               filter
-              className="max-w-[10rem]"
+              className="min-w-0 flex-1 sm:max-w-[10rem]"
               value={to}
               min={from || undefined}
               onChange={(e) => setTo(e.target.value)}

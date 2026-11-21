@@ -42,7 +42,7 @@ export function PageHeader({
           <p className="mt-1 text-[13px] leading-relaxed text-muted">{descripcion}</p>
         )}
       </div>
-      {acciones && <div className="flex shrink-0 flex-wrap gap-2">{acciones}</div>}
+      {acciones && <div className="flex max-w-full min-w-0 flex-wrap gap-2">{acciones}</div>}
     </div>
   );
 }

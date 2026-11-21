@@ -8,6 +8,7 @@ import { ImportarProductos } from '@/features/products/ImportarProductos';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { EmptyState, Page, PageHeader, SkeletonRows } from '@/components/ui/page';
+import { Campo, Seccion } from '@/components/ui/field';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -415,158 +416,150 @@ function ProductForm({
   });
 
   return (
-    <Modal open onClose={onClose} title={product ? 'Editar producto' : 'Nuevo producto'}>
-      <div className="flex flex-col gap-3">
-        {isNew && (
-          <>
-            <label className="text-sm text-muted">Sucursal / Central</label>
-            <Select
-              value={form.locationId}
-              onChange={(e) => setForm({ ...form, locationId: e.target.value })}
-            >
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                  {l.isCentral ? ' (Central)' : ''}
-                </option>
-              ))}
-            </Select>
-          </>
-        )}
-        {/*
-          El SKU se MUESTRA, no se escribe.
-
-          Lo genera el sistema (correlativo por negocio) y antes se podía teclear encima,
-          al crear y al editar. Un código que el sistema controla y que a la vez cualquiera
-          reescribe no es un código: invita a duplicados y a erratas, y ese SKU ya viajó a
-          recibos y exportaciones que no se pueden corregir.
-
-          Al crear todavía no existe —se asigna al guardar—, así que se dice eso en vez de
-          enseñar un campo vacío que parece rellenable. Quien necesite su propio código
-          tiene el de barras, que el buscador ya admite.
-        */}
-        <label htmlFor="pf-sku" className="text-sm text-muted">
-          SKU
-        </label>
-        <Input
-          id="pf-sku"
-          readOnly
-          value={isNew ? '' : form.sku}
-          placeholder={isNew ? 'Se genera solo al guardar' : undefined}
-          className="text-muted"
-        />
-
-        <label htmlFor="pf-nombre" className="text-sm text-muted">
-          Nombre
-        </label>
-        <Input
-          id="pf-nombre"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-        />
-
-        {/*
-          Descripción: existía en la base y el POS ya la enseñaba, pero no había forma de
-          escribirla. Es lo que distingue dos productos que se llaman casi igual —«Llanta
-          175/70R13» y «…reforzada»— cuando quien atiende no es quien compró la mercadería.
-
-          `textarea` y no `Input`: en una línea no cabe, y este es el hueco donde cada
-          negocio pone lo suyo — la talla y el color en ropa, el sabor en caramelos, la
-          medida en llantas.
-        */}
-        <label htmlFor="pf-desc" className="text-sm text-muted">
-          Descripción <span className="text-xs">(opcional)</span>
-        </label>
-        <textarea
-          id="pf-desc"
-          rows={3}
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          placeholder="Lo que ayude a distinguirlo: talla, color, sabor, medida…"
-          className="ds-field w-full resize-y rounded-theme border border-field bg-surface px-3 py-2 text-sm"
-        />
-
-        <FotoDeProducto
-          actual={product?.imageUrl}
-          nueva={foto}
-          onNueva={setFoto}
-          quitar={quitarFoto}
-          onQuitar={setQuitarFoto}
-        />
-
-        <label htmlFor="pf-precio" className="text-sm text-muted">
-          Precio de venta
-        </label>
-        <Input
-          id="pf-precio"
-          inputMode="decimal"
-          value={form.price}
-          onChange={(e) => setForm({ ...form, price: e.target.value })}
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm text-muted">Compra unitario</label>
-            <Input
-              inputMode="decimal"
-              value={form.cost}
-              onChange={(e) => setForm({ ...form, cost: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted">Compra por mayor</label>
-            <Input
-              inputMode="decimal"
-              value={form.costWholesale}
-              onChange={(e) => setForm({ ...form, costWholesale: e.target.value })}
-            />
-          </div>
+    <Modal
+      open
+      onClose={onClose}
+      title={product ? 'Editar producto' : 'Nuevo producto'}
+      footer={
+        <div className="flex flex-col gap-2">
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+            {save.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
         </div>
-        {Number(form.cost) > 0 && (
-          <div className="rounded-theme bg-muted/10 p-2 text-sm">
-            Ganancia por unidad:{' '}
-            <span className="font-semibold text-success">
-              {money(margin)} ({marginPct.toFixed(0)}%)
-            </span>
-          </div>
-        )}
-        {schema.map((f) => (
-          <div key={f.key} className="flex flex-col gap-1">
-            <label className="text-sm text-muted">
-              {f.label}
-              {f.required ? ' *' : ''}
-            </label>
+      }
+    >
+      <div className="flex flex-col gap-6">
+        <Seccion titulo="Producto">
+          <Campo etiqueta="Nombre" ayuda="Como lo busca y lo reconoce quien vende.">
             <Input
-              value={String(form.attributes[f.key] ?? '')}
-              onChange={(e) =>
-                setForm({ ...form, attributes: { ...form.attributes, [f.key]: e.target.value } })
-              }
+              value={form.name}
+              placeholder="Ej. Llanta 175/70R13"
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
-          </div>
-        ))}
-        {isNew && (
+          </Campo>
+          {/* El SKU se MUESTRA, no se escribe: lo genera el sistema (correlativo por
+              negocio). Escribible invitaba a duplicados y erratas que ya viajaron a recibos. */}
+          <Campo
+            etiqueta="Código (SKU)"
+            ayuda={isNew ? 'Lo asigna el sistema al guardar.' : 'Lo asigna el sistema; no se edita.'}
+          >
+            <Input
+              readOnly
+              value={isNew ? '' : form.sku}
+              placeholder={isNew ? 'Se genera solo al guardar' : undefined}
+              className="text-muted"
+            />
+          </Campo>
+          {isNew && (
+            <Campo etiqueta="¿Dónde se guarda?" ayuda="La sucursal o central que recibe el stock inicial.">
+              <Select
+                value={form.locationId}
+                onChange={(e) => setForm({ ...form, locationId: e.target.value })}
+              >
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                    {l.isCentral ? ' (Central)' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Campo>
+          )}
+          <Campo etiqueta="Descripción" opcional ayuda="Talla, color, sabor, medida… lo que lo distingue de otro parecido.">
+            <textarea
+              rows={3}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="ds-field w-full resize-y rounded-theme border border-field bg-surface px-3 py-2 text-base"
+            />
+          </Campo>
+          <FotoDeProducto
+            actual={product?.imageUrl}
+            nueva={foto}
+            onNueva={setFoto}
+            quitar={quitarFoto}
+            onQuitar={setQuitarFoto}
+          />
+        </Seccion>
+
+        <Seccion titulo="Precios">
+          <Campo etiqueta="Precio de venta" ayuda="Lo que paga el cliente, en bolivianos.">
+            <Input
+              inputMode="decimal"
+              placeholder="0.00"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+            />
+          </Campo>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm text-muted">Stock inicial</label>
+            <Campo etiqueta="Costo unitario" opcional>
               <Input
-                inputMode="numeric"
-                value={form.initialStock}
-                onChange={(e) => setForm({ ...form, initialStock: e.target.value })}
+                inputMode="decimal"
+                placeholder="0.00"
+                value={form.cost}
+                onChange={(e) => setForm({ ...form, cost: e.target.value })}
               />
-            </div>
-            <div>
-              <label className="text-sm text-muted">Stock mínimo</label>
+            </Campo>
+            <Campo etiqueta="Costo por mayor" opcional>
               <Input
-                inputMode="numeric"
-                value={form.minStock}
-                onChange={(e) => setForm({ ...form, minStock: e.target.value })}
+                inputMode="decimal"
+                placeholder="0.00"
+                value={form.costWholesale}
+                onChange={(e) => setForm({ ...form, costWholesale: e.target.value })}
               />
-            </div>
+            </Campo>
           </div>
+          {Number(form.cost) > 0 && (
+            <div className="rounded-theme bg-muted/10 p-2.5 text-sm">
+              Ganancia por unidad:{' '}
+              <span className="font-semibold text-success">
+                {money(margin)} ({marginPct.toFixed(0)}%)
+              </span>
+            </div>
+          )}
+        </Seccion>
+
+        {isNew && (
+          <Seccion titulo="Stock">
+            <div className="grid grid-cols-2 gap-3">
+              <Campo etiqueta="Stock inicial" ayuda="Cuántas unidades hay hoy.">
+                <Input
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={form.initialStock}
+                  onChange={(e) => setForm({ ...form, initialStock: e.target.value })}
+                />
+              </Campo>
+              <Campo etiqueta="Stock mínimo" ayuda="Te avisamos al llegar a esta cantidad.">
+                <Input
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={form.minStock}
+                  onChange={(e) => setForm({ ...form, minStock: e.target.value })}
+                />
+              </Campo>
+            </div>
+          </Seccion>
         )}
-        {error && <p className="text-sm text-danger">{error}</p>}
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>
-          Guardar
-        </Button>
+
+        {schema.length > 0 && (
+          <Seccion titulo="Detalles del rubro">
+            {schema.map((f) => (
+              <Campo key={f.key} etiqueta={f.label} opcional={!f.required}>
+                <Input
+                  value={String(form.attributes[f.key] ?? '')}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      attributes: { ...form.attributes, [f.key]: e.target.value },
+                    })
+                  }
+                />
+              </Campo>
+            ))}
+          </Seccion>
+        )}
       </div>
     </Modal>
   );

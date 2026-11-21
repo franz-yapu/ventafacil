@@ -97,14 +97,8 @@ beforeEach(() => {
 async function rellenarConFoto() {
   await userEvent.click(await screen.findByRole('button', { name: /Nuevo/ }));
 
-  /*
-    El campo se ancla al del SKU, que es el único identificable por su marcador, y se toma
-    el siguiente. Contando cajas de texto a ojo se acertaba con el buscador de la pantalla
-    en vez de con el nombre, y el producto se guardaba sin nombre sin que el test lo dijera.
-  */
-  const sku = await screen.findByPlaceholderText('Se genera solo al guardar');
-  const cajas = screen.getAllByRole('textbox');
-  const nombre = cajas[cajas.indexOf(sku as HTMLInputElement) + 1]!;
+  // Por su rótulo, que ahora está asociado al campo; el buscador de la pantalla no lo tiene.
+  const nombre = await screen.findByLabelText('Nombre');
   await userEvent.type(nombre, 'Llanta 175/70 R13');
 
   /*
