@@ -289,6 +289,9 @@ export function AuthTabs({ actual }: { actual: 'entrar' | 'registro' }) {
   );
 }
 
+/** Versión visible en el pie de todas las pantallas de entrada. */
+export const VERSION_APP = '0.0.1';
+
 /** Marco de página: sala oscura a la izquierda, hoja de formulario a la derecha. */
 export function AuthLayout({
   hero,
@@ -303,7 +306,10 @@ export function AuthLayout({
     <div className="flex min-h-full flex-col gap-4 bg-bg p-3 md:flex-row md:gap-6 md:p-6">
       {movil}
       {hero}
-      <div className="flex flex-1 items-center justify-center py-2 md:py-0">{children}</div>
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 py-2 md:py-0">
+        {children}
+        <p className="text-center text-[11px] tabular-nums text-muted">Versión {VERSION_APP}</p>
+      </div>
     </div>
   );
 }

@@ -90,14 +90,10 @@ export function AuthShell({
 
         {legal && <PieLegal />}
 
-        <p className="mt-4 text-center text-[11px] tabular-nums text-muted">Versión {VERSION_APP}</p>
       </div>
     </AuthLayout>
   );
 }
-
-/** Versión visible en el pie de las pantallas de entrada. */
-export const VERSION_APP = '0.0.1';
 
 /**
  * Términos y privacidad, en todas las pantallas de entrada.
