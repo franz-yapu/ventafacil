@@ -1,5 +1,7 @@
 import { ahorroPct, enOferta, LIMIT_LABELS, limitLabel, type LimitKey } from '@ventafacil/shared';
-import { Check, Tag } from 'lucide-react';
+import { Check, MessageCircle, Tag } from 'lucide-react';
+import { useState } from 'react';
+import { enlaceWhatsapp } from '@/lib/contacto';
 import type { PlanInfo } from '@/features/subscription/SubscriptionProvider';
 import { cn } from '@/lib/utils';
 
@@ -7,6 +9,14 @@ import { cn } from '@/lib/utils';
 function cupo(key: LimitKey, max: number | null): string {
   if (max === null) return `${LIMIT_LABELS[key]} sin límite`;
   return `${max} ${limitLabel(key, max)}`;
+}
+
+export type Periodo = 'anual' | 'mensual';
+
+/** Importe del periodo: el anual son 12 meses del precio mensual. */
+export function importe(mensual: string, periodo: Periodo): string {
+  const n = Number(mensual);
+  return (periodo === 'anual' ? n * 12 : n).toFixed(2);
 }
 
 /**
@@ -19,21 +29,37 @@ export function PlanCard({
   plan,
   actual = false,
   precioFijo,
+  periodo = 'anual',
 }: {
   plan: PlanInfo;
   actual?: boolean;
   /** Si el negocio ya paga otro importe (precio que se le mantiene), se muestra aparte. */
   precioFijo?: string;
+  periodo?: Periodo;
 }) {
+  const [abierta, setAbierta] = useState(false);
+  const anual = periodo === 'anual';
+  const mensualBase = precioFijo ?? plan.priceMonthly;
+  const mensaje = `Hola, quiero contratar el plan ${plan.name} (${anual ? 'anual' : 'mensual'}) de VentaFácil.`;
   const oferta = enOferta(plan);
   const pct = ahorroPct(plan);
 
   return (
     <article
+      role="button"
+      tabIndex={0}
+      aria-expanded={abierta}
+      onClick={() => setAbierta((v) => !v)}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          setAbierta((v) => !v);
+        }
+      }}
       className={cn(
-        'relative flex flex-col overflow-hidden rounded-theme border bg-surface p-5 transition-[transform,box-shadow] duration-200 ease-out',
+        'relative cursor-pointer flex flex-col overflow-hidden rounded-theme border bg-surface p-5 transition-[transform,box-shadow] duration-200 ease-out',
         'motion-safe:hover:-translate-y-0.5 motion-safe:hover:shadow-lg',
-        oferta || actual ? 'border-primary' : 'border-border',
+        oferta || actual ? 'border-primary' : 'border-field',
       )}
       aria-label={`Plan ${plan.name}`}
     >
@@ -61,16 +87,21 @@ export function PlanCard({
           <div className="text-[13px] text-muted">
             Precio de lista{' '}
             <s className="tabular-nums" aria-label={`antes ${plan.regularPrice}`}>
-              {plan.currency} {plan.regularPrice}
+              {plan.currency} {importe(plan.regularPrice ?? "0", periodo)}
             </s>
           </div>
         )}
         <div className="flex items-baseline gap-1">
           <span className="text-[34px] font-extrabold leading-none tracking-[-0.03em] tabular-nums">
-            {plan.currency} {precioFijo ?? plan.priceMonthly}
+            {plan.currency} {importe(mensualBase, periodo)}
           </span>
-          <span className="text-[13px] text-muted">/mes</span>
+          <span className="text-[13px] text-muted">{anual ? '/año' : '/mes'}</span>
         </div>
+        {anual && (
+          <p className="mt-1 text-[12px] tabular-nums text-muted">
+            Equivale a {plan.currency} {mensualBase} al mes
+          </p>
+        )}
         {oferta && (
           <p className="mt-1.5 text-[12px] font-semibold text-primary">
             Contrata ahora y este precio se mantiene.
@@ -101,6 +132,29 @@ export function PlanCard({
           </li>
         )}
       </ul>
+
+      {abierta && (
+        <div className="mt-4 border-t border-border pt-4">
+          <a
+            href={enlaceWhatsapp(mensaje)}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-theme bg-primary px-4 text-[14px] font-bold text-primary-fg"
+          >
+            <MessageCircle size={18} aria-hidden="true" />
+            Contratar por WhatsApp
+          </a>
+          <p className="mt-2 text-center text-[12px] text-muted">
+            Te respondemos para activar el plan.
+          </p>
+        </div>
+      )}
+      {!abierta && (
+        <p className="mt-4 text-center text-[12px] font-semibold text-primary">
+          Toca para contratar
+        </p>
+      )}
     </article>
   );
 }

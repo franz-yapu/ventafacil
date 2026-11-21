@@ -1,7 +1,8 @@
 import { LIMIT_LABELS, type LimitKey } from '@ventafacil/shared';
 import { useQuery } from '@tanstack/react-query';
+import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlanCard } from '@/features/subscription/PlanCard';
+import { PlanCard, type Periodo } from '@/features/subscription/PlanCard';
 import { Page, PageHeader } from '@/components/ui/page';
 import type { PlanInfo } from '@/features/subscription/SubscriptionProvider';
 import { useSubscription } from '@/features/subscription/SubscriptionProvider';
@@ -47,6 +48,7 @@ function Cupo({ nombre, used, limit }: { nombre: string; used: number; limit: nu
 /** Qué plan tiene el negocio, cuánto de su cupo lleva usado y qué otros planes hay. */
 export function SubscriptionPage() {
   const { sub, loading } = useSubscription();
+  const [periodo, setPeriodo] = useState<Periodo>('anual');
 
   const { data: planes } = useQuery({
     queryKey: ['plans'],
@@ -107,12 +109,31 @@ export function SubscriptionPage() {
 
       {planes && planes.length > 0 && (
         <>
-          <h2 className="mt-2 text-lg font-semibold">Planes disponibles</h2>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold">Planes disponibles</h2>
+            <div role="group" aria-label="Periodo de pago" className="inline-flex rounded-full bg-fg/[0.07] p-1">
+              {(['anual', 'mensual'] as Periodo[]).map((per) => (
+                <button
+                  key={per}
+                  type="button"
+                  aria-pressed={periodo === per}
+                  onClick={() => setPeriodo(per)}
+                  className={cn(
+                    'min-h-9 rounded-full px-4 text-[13px] font-semibold capitalize transition-colors',
+                    periodo === per ? 'bg-surface text-fg shadow-sm' : 'text-muted',
+                  )}
+                >
+                  {per}
+                </button>
+              ))}
+            </div>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {planes.map((p) => (
               <PlanCard
                 key={p.code}
                 plan={p}
+                periodo={periodo}
                 actual={p.code === sub?.plan?.code}
                 precioFijo={p.code === sub?.plan?.code ? sub.plan.priceMonthly : undefined}
               />
