@@ -48,7 +48,13 @@ export function MiCuentaModal(_: { onClose: () => void }) {
     {
       actual: requerido('La contraseña actual'),
       nueva: (x: string) =>
-        x === '' ? 'La contraseña nueva es obligatoria' : x.length < 12 ? 'Mínimo 12 caracteres' : x.length > 100 ? 'Máximo 100 caracteres' : null,
+        x === ''
+          ? 'La contraseña nueva es obligatoria'
+          : x.length < 12
+            ? 'Mínimo 12 caracteres'
+            : x.length > 100
+              ? 'Máximo 100 caracteres'
+              : null,
     },
     { actual, nueva },
   );
@@ -151,7 +157,11 @@ export function MiCuentaModal(_: { onClose: () => void }) {
                 autoComplete="current-password"
               />
             </Campo>
-            <Campo etiqueta="Contraseña nueva" ayuda="Mínimo 12 caracteres." error={vc.ver('nueva')}>
+            <Campo
+              etiqueta="Contraseña nueva"
+              ayuda="Mínimo 12 caracteres."
+              error={vc.ver('nueva')}
+            >
               <Input
                 type="password"
                 value={nueva}

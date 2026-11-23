@@ -70,53 +70,53 @@ export function OperadoresModal(_: { onClose: () => void }) {
         <ul className="grid gap-3 md:grid-cols-2">
           {operadores?.map((o, i) => (
             <li key={o.id} className="list-none">
-            <TarjetaTono
-              tono={!o.isActive ? 'danger' : o.isOwner ? 'primary' : 'info'}
-              i={i + 1}
-              className="flex items-center justify-between gap-3 p-4"
-            >
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-semibold">{o.name}</span>
-                  {o.isOwner && (
-                    <Badge tone="info">
-                      <ShieldCheck size={11} /> Principal
-                    </Badge>
+              <TarjetaTono
+                tono={!o.isActive ? 'danger' : o.isOwner ? 'primary' : 'info'}
+                i={i + 1}
+                className="flex items-center justify-between gap-3 p-4"
+              >
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="truncate text-sm font-semibold">{o.name}</span>
+                    {o.isOwner && (
+                      <Badge tone="info">
+                        <ShieldCheck size={11} /> Principal
+                      </Badge>
+                    )}
+                    {!o.isActive && <Badge tone="neutral">Inactivo</Badge>}
+                    {o.id === admin?.sub && <Badge tone="success">Tú</Badge>}
+                  </div>
+                  <div className="truncate text-[13px] text-muted">{o.email}</div>
+                  <div className="text-[12px] text-muted">
+                    {o.lastLoginAt
+                      ? `Última entrada: ${new Date(o.lastLoginAt).toLocaleString('es-BO')}`
+                      : 'Nunca entró'}
+                  </div>
+                </div>
+                <div className="flex shrink-0 flex-col gap-1">
+                  {o.id !== admin?.sub && (
+                    <>
+                      <Button
+                        variant={o.isActive ? 'danger' : 'outline'}
+                        className="h-8 px-2 text-[12px]"
+                        disabled={editar.isPending}
+                        onClick={() => editar.mutate({ id: o.id, body: { isActive: !o.isActive } })}
+                      >
+                        {o.isActive ? 'Desactivar' : 'Reactivar'}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        className="h-8 px-2 text-[12px]"
+                        disabled={editar.isPending}
+                        onClick={() => editar.mutate({ id: o.id, body: { isOwner: !o.isOwner } })}
+                      >
+                        {o.isOwner ? 'Quitar principal' : 'Hacer principal'}
+                      </Button>
+                      <NuevaClave id={o.id} onError={setError} />
+                    </>
                   )}
-                  {!o.isActive && <Badge tone="neutral">Inactivo</Badge>}
-                  {o.id === admin?.sub && <Badge tone="success">Tú</Badge>}
                 </div>
-                <div className="truncate text-[13px] text-muted">{o.email}</div>
-                <div className="text-[12px] text-muted">
-                  {o.lastLoginAt
-                    ? `Última entrada: ${new Date(o.lastLoginAt).toLocaleString('es-BO')}`
-                    : 'Nunca entró'}
-                </div>
-              </div>
-              <div className="flex shrink-0 flex-col gap-1">
-                {o.id !== admin?.sub && (
-                  <>
-                    <Button
-                      variant={o.isActive ? 'danger' : 'outline'}
-                      className="h-8 px-2 text-[12px]"
-                      disabled={editar.isPending}
-                      onClick={() => editar.mutate({ id: o.id, body: { isActive: !o.isActive } })}
-                    >
-                      {o.isActive ? 'Desactivar' : 'Reactivar'}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="h-8 px-2 text-[12px]"
-                      disabled={editar.isPending}
-                      onClick={() => editar.mutate({ id: o.id, body: { isOwner: !o.isOwner } })}
-                    >
-                      {o.isOwner ? 'Quitar principal' : 'Hacer principal'}
-                    </Button>
-                    <NuevaClave id={o.id} onError={setError} />
-                  </>
-                )}
-              </div>
-            </TarjetaTono>
+              </TarjetaTono>
             </li>
           ))}
         </ul>
@@ -203,12 +203,25 @@ function FormularioAlta({ onListo, onCancelar }: { onListo: () => void; onCancel
     {
       name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
       email: todas(requerido('El correo'), correo),
-      password: (x: string) => (x === '' ? 'La contraseña es obligatoria' : x.length < 12 ? 'Mínimo 12 caracteres' : x.length > 100 ? 'Máximo 100 caracteres' : null),
+      password: (x: string) =>
+        x === ''
+          ? 'La contraseña es obligatoria'
+          : x.length < 12
+            ? 'Mínimo 12 caracteres'
+            : x.length > 100
+              ? 'Máximo 100 caracteres'
+              : null,
     },
     { name, email, password },
   );
   const crear = useMutation({
-    mutationFn: () => platformApi.post('/platform/admins', { name: name.trim(), email: email.trim(), password, isOwner }),
+    mutationFn: () =>
+      platformApi.post('/platform/admins', {
+        name: name.trim(),
+        email: email.trim(),
+        password,
+        isOwner,
+      }),
     onSuccess: onListo,
     onError: (e: Error) => setError(e.message),
   });

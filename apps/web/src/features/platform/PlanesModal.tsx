@@ -108,92 +108,104 @@ function PlanForm({ plan, i }: { plan: PlanFila; i: number }) {
     onError: (e: Error) => setError(e.message),
   });
 
-
   return (
     <TarjetaTono tono={PLAN_TONO[plan.code] ?? 'warning'} i={i + 1}>
-    <form
-      className="p-4"
-      onSubmit={(e) => {
-        e.preventDefault();
-        setGuardado(false);
-        if (!v.intentar()) return;
-        guardar.mutate();
-      }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-bold">{plan.name}</h3>
-          {!plan.isPublic && <Badge tone="neutral">Interno</Badge>}
-          {oferta && (
-            <Badge tone="success">
-              <Tag size={11} /> Oferta −{ahorroPct(vista)}%
-            </Badge>
-          )}
+      <form
+        className="p-4"
+        onSubmit={(e) => {
+          e.preventDefault();
+          setGuardado(false);
+          if (!v.intentar()) return;
+          guardar.mutate();
+        }}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-bold">{plan.name}</h3>
+            {!plan.isPublic && <Badge tone="neutral">Interno</Badge>}
+            {oferta && (
+              <Badge tone="success">
+                <Tag size={11} /> Oferta −{ahorroPct(vista)}%
+              </Badge>
+            )}
+          </div>
+          <span className="text-[12px] text-muted">{plan.code}</span>
         </div>
-        <span className="text-[12px] text-muted">{plan.code}</span>
-      </div>
 
-      <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <Campo etiqueta={`Precio mensual base (${plan.currency}/mes; se muestra x12 al año)`} error={v.ver('precio')}>
-          <Input inputMode="decimal" value={precio} onBlur={() => v.tocar('precio')} onChange={(e) => setPrecio(e.target.value)} />
-        </Campo>
-        <Campo etiqueta="Precio de lista (tachado)" opcional error={v.ver('lista')}>
-          <Input
-            inputMode="decimal"
-            value={lista}
-            placeholder="sin oferta"
-            onBlur={() => v.tocar('lista')}
-            onChange={(e) => setLista(e.target.value)}
-          />
-        </Campo>
-        <Campo etiqueta="Rótulo de la oferta" opcional className="col-span-2 sm:col-span-3" error={v.ver('rotulo')}>
-          <Input
-            value={rotulo}
-            maxLength={40}
-            placeholder="Oferta de este mes"
-            onBlur={() => v.tocar('rotulo')}
-            onChange={(e) => setRotulo(e.target.value)}
-          />
-        </Campo>
-        <Campo etiqueta="Sucursales" opcional error={v.ver('sucursales')}>
-          <Input
-            inputMode="numeric"
-            value={sucursales}
-            placeholder="sin límite"
-            onBlur={() => v.tocar('sucursales')}
-            onChange={(e) => setSucursales(e.target.value)}
-          />
-        </Campo>
-        <Campo etiqueta="Usuarios" opcional error={v.ver('usuarios')}>
-          <Input
-            inputMode="numeric"
-            value={usuarios}
-            placeholder="sin límite"
-            onBlur={() => v.tocar('usuarios')}
-            onChange={(e) => setUsuarios(e.target.value)}
-          />
-        </Campo>
-        <Campo etiqueta="Productos" opcional error={v.ver('productos')}>
-          <Input
-            inputMode="numeric"
-            value={productos}
-            placeholder="sin límite"
-            onBlur={() => v.tocar('productos')}
-            onChange={(e) => setProductos(e.target.value)}
-          />
-        </Campo>
-      </div>
+        <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
+          <Campo
+            etiqueta={`Precio mensual base (${plan.currency}/mes; se muestra x12 al año)`}
+            error={v.ver('precio')}
+          >
+            <Input
+              inputMode="decimal"
+              value={precio}
+              onBlur={() => v.tocar('precio')}
+              onChange={(e) => setPrecio(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Precio de lista (tachado)" opcional error={v.ver('lista')}>
+            <Input
+              inputMode="decimal"
+              value={lista}
+              placeholder="sin oferta"
+              onBlur={() => v.tocar('lista')}
+              onChange={(e) => setLista(e.target.value)}
+            />
+          </Campo>
+          <Campo
+            etiqueta="Rótulo de la oferta"
+            opcional
+            className="col-span-2 sm:col-span-3"
+            error={v.ver('rotulo')}
+          >
+            <Input
+              value={rotulo}
+              maxLength={40}
+              placeholder="Oferta de este mes"
+              onBlur={() => v.tocar('rotulo')}
+              onChange={(e) => setRotulo(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Sucursales" opcional error={v.ver('sucursales')}>
+            <Input
+              inputMode="numeric"
+              value={sucursales}
+              placeholder="sin límite"
+              onBlur={() => v.tocar('sucursales')}
+              onChange={(e) => setSucursales(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Usuarios" opcional error={v.ver('usuarios')}>
+            <Input
+              inputMode="numeric"
+              value={usuarios}
+              placeholder="sin límite"
+              onBlur={() => v.tocar('usuarios')}
+              onChange={(e) => setUsuarios(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Productos" opcional error={v.ver('productos')}>
+            <Input
+              inputMode="numeric"
+              value={productos}
+              placeholder="sin límite"
+              onBlur={() => v.tocar('productos')}
+              onChange={(e) => setProductos(e.target.value)}
+            />
+          </Campo>
+        </div>
 
-      <div className="mt-3 flex items-center justify-between gap-3">
-        <span role="status" className="text-[13px]">
-          {error && <span className="text-danger">{error}</span>}
-          {guardado && <span className="text-success">Guardado</span>}
-        </span>
-        <Button type="submit" className="h-9 px-4 text-[13px]" disabled={guardar.isPending}>
-          {guardar.isPending ? 'Guardando…' : 'Guardar'}
-        </Button>
-      </div>
-    </form>
+        <div className="mt-3 flex items-center justify-between gap-3">
+          <span role="status" className="text-[13px]">
+            {error && <span className="text-danger">{error}</span>}
+            {guardado && <span className="text-success">Guardado</span>}
+          </span>
+          <Button type="submit" className="h-9 px-4 text-[13px]" disabled={guardar.isPending}>
+            {guardar.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </div>
+      </form>
     </TarjetaTono>
   );
 }

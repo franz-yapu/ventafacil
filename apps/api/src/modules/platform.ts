@@ -39,9 +39,7 @@ const loginBody = z.object({
   password: z.string().min(1),
 });
 
-const dinero = z
-  .string()
-  .regex(/^\d{1,7}(\.\d{1,2})?$/, 'Precio inválido (ej. 74.50)');
+const dinero = z.string().regex(/^\d{1,7}(\.\d{1,2})?$/, 'Precio inválido (ej. 74.50)');
 const cupo = z.number().int().min(1, 'El cupo mínimo es 1').max(1_000_000).nullable();
 
 /** Lo único editable de un plan desde el panel: precio, oferta y cupos. */
@@ -658,7 +656,9 @@ export async function platformRoutes(app: FastifyInstance) {
             })
           : null,
         // Fase del plan pagado (por vencer / gracia / sólo lectura), calculada por el servidor.
-        periodo: r.status ? periodoPagado({ status: r.status, currentPeriodEnd: r.currentPeriodEnd }) : null,
+        periodo: r.status
+          ? periodoPagado({ status: r.status, currentPeriodEnd: r.currentPeriodEnd })
+          : null,
       };
     });
     const data =
@@ -782,7 +782,9 @@ export async function platformRoutes(app: FastifyInstance) {
         subscription: sub ? { ...sub, status } : null,
         blocked: status ? isBlocked(status) : false,
         vence: vencimiento(sub ?? null),
-        periodo: sub ? periodoPagado({ status: sub.status, currentPeriodEnd: sub.currentPeriodEnd }) : null,
+        periodo: sub
+          ? periodoPagado({ status: sub.status, currentPeriodEnd: sub.currentPeriodEnd })
+          : null,
         usage: uso,
       },
       error: null,
@@ -902,7 +904,9 @@ export async function platformRoutes(app: FastifyInstance) {
       .from(schema.subscription)
       .where(eq(schema.subscription.businessId, id))
       .limit(1);
-    const estado = sub ? effectiveStatus({ status: sub.status, trialEndsAt: sub.trialEndsAt }) : null;
+    const estado = sub
+      ? effectiveStatus({ status: sub.status, trialEndsAt: sub.trialEndsAt })
+      : null;
     if (estado !== 'trial_expired' && estado !== 'cancelled') {
       return reply.code(409).send({
         data: null,
@@ -929,7 +933,10 @@ export async function platformRoutes(app: FastifyInstance) {
       before: { ...biz, estado },
       after: { copia: respaldo.archivo, filas: respaldo.filas },
     });
-    return reply.send({ data: { eliminado: true, copia: respaldo.archivo, filas: respaldo.filas }, error: null });
+    return reply.send({
+      data: { eliminado: true, copia: respaldo.archivo, filas: respaldo.filas },
+      error: null,
+    });
   });
 
   // ── Soporte: usuarios de un negocio ──────────────────────────
@@ -1324,7 +1331,10 @@ export async function platformRoutes(app: FastifyInstance) {
         if (!mismoCiclo) {
           const mantiene =
             (d.planCode === undefined || d.planCode === before?.planCode) && before?.lockedPrice;
-          const q = cotizar(mantiene ? before!.lockedPrice! : planFila.priceMonthly, d.billingMonths);
+          const q = cotizar(
+            mantiene ? before!.lockedPrice! : planFila.priceMonthly,
+            d.billingMonths,
+          );
           const desde = new Date();
           patch.billingMonths = q.meses;
           patch.billedAmount = q.total;
@@ -1366,13 +1376,14 @@ export async function platformRoutes(app: FastifyInstance) {
           .values({
             businessId: id,
             planCode: d.planCode,
-            lockedPrice: (
-              await db
-                .select({ p: schema.plan.priceMonthly })
-                .from(schema.plan)
-                .where(eq(schema.plan.code, d.planCode))
-                .limit(1)
-            )[0]?.p ?? null,
+            lockedPrice:
+              (
+                await db
+                  .select({ p: schema.plan.priceMonthly })
+                  .from(schema.plan)
+                  .where(eq(schema.plan.code, d.planCode))
+                  .limit(1)
+              )[0]?.p ?? null,
             status: d.status ?? 'active',
             trialEndsAt: d.trialEndsAt ? new Date(d.trialEndsAt) : null,
             suspendedReason: d.suspendedReason ?? null,

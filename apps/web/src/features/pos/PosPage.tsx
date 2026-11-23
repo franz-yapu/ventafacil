@@ -548,23 +548,31 @@ export function PosPage() {
                   de siempre: el texto ocupa todo el ancho.
                 */}
                 <div className="flex min-w-0 flex-1 flex-col gap-2">
-                <div className={p.imageUrl ? 'flex items-center gap-2' : 'flex items-start justify-between gap-2'}>
-                  {p.imageUrl && (
-                    <Miniatura url={p.imageUrl} className="h-12 w-12 shrink-0" icono={18} />
-                  )}
-                  <div className={p.imageUrl ? 'flex min-w-0 flex-col gap-1' : 'contents'}>
-                  <span className="truncate font-mono text-[10px] font-medium text-muted">{p.sku}</span>
-                  {remaining != null && (
-                    <span
-                      className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-bold ${textCol}`}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
-                      {stockLabel}
-                    </span>
-                  )}
+                  <div
+                    className={
+                      p.imageUrl
+                        ? 'flex items-center gap-2'
+                        : 'flex items-start justify-between gap-2'
+                    }
+                  >
+                    {p.imageUrl && (
+                      <Miniatura url={p.imageUrl} className="h-12 w-12 shrink-0" icono={18} />
+                    )}
+                    <div className={p.imageUrl ? 'flex min-w-0 flex-col gap-1' : 'contents'}>
+                      <span className="truncate font-mono text-[10px] font-medium text-muted">
+                        {p.sku}
+                      </span>
+                      {remaining != null && (
+                        <span
+                          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-bold ${textCol}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
+                          {stockLabel}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-                {/*
+                  {/*
                   La foto, sólo si en este catálogo hay fotos.
 
                   Reservarle sitio siempre dejaría una banda gris de 80 px en cada tarjeta
@@ -576,7 +584,7 @@ export function PosPage() {
                   Así que la banda entra o no entra para TODA la rejilla, y quien nunca suba
                   una foto seguirá viendo exactamente el POS que tiene hoy.
                 */}
-                {/*
+                  {/*
                   La foto la lleva la tarjeta que la tiene, y punto.
 
                   Antes la banda era todo-o-nada para la rejilla entera, para que ninguna
@@ -589,10 +597,10 @@ export function PosPage() {
                   compacte. Las alturas quedan desiguales dentro de la rejilla; si al usarlo
                   molesta, volver atrás es cambiar esta línea.
                 */}
-                <span className="line-clamp-2 text-[15px] font-semibold leading-tight">
-                  {p.name}
-                </span>
-                {/*
+                  <span className="line-clamp-2 text-[15px] font-semibold leading-tight">
+                    {p.name}
+                  </span>
+                  {/*
                   La descripción, cuando la hay.
 
                   Ya estaba en la base y en la respuesta del catálogo; sólo no se enseñaba.
@@ -601,14 +609,14 @@ export function PosPage() {
                   y quien atiende no es quien compró la mercadería. Una línea, recortada:
                   la tarjeta tiene que seguir siendo una diana grande para el dedo.
                 */}
-                {p.description ? (
-                  <span className="line-clamp-1 flex-1 text-[12px] leading-tight text-muted">
-                    {p.description}
-                  </span>
-                ) : (
-                  <span className="flex-1" />
-                )}
-                <span className="text-[17px] font-bold">{money(p.price)}</span>
+                  {p.description ? (
+                    <span className="line-clamp-1 flex-1 text-[12px] leading-tight text-muted">
+                      {p.description}
+                    </span>
+                  ) : (
+                    <span className="flex-1" />
+                  )}
+                  <span className="text-[17px] font-bold">{money(p.price)}</span>
                 </div>
               </button>
             );
@@ -938,15 +946,21 @@ function NewCustomerModal({
     <Modal open onClose={onClose} title="Nuevo cliente">
       <div className="flex flex-col gap-3">
         <Campo etiqueta="Nombre" error={vc.ver('name')}>
-          <Input value={name} onBlur={() => vc.tocar('name')} onChange={(e) => setName(e.target.value)} autoFocus />
+          <Input
+            value={name}
+            onBlur={() => vc.tocar('name')}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
         </Campo>
         <Campo etiqueta="Teléfono" opcional error={vc.ver('phone')}>
-          <Input value={phone} onBlur={() => vc.tocar('phone')} onChange={(e) => setPhone(e.target.value)} />
+          <Input
+            value={phone}
+            onBlur={() => vc.tocar('phone')}
+            onChange={(e) => setPhone(e.target.value)}
+          />
         </Campo>
-        <Button
-          disabled={create.isPending}
-          onClick={() => vc.intentar() && create.mutate()}
-        >
+        <Button disabled={create.isPending} onClick={() => vc.intentar() && create.mutate()}>
           {create.isPending ? 'Guardando…' : 'Guardar'}
         </Button>
       </div>

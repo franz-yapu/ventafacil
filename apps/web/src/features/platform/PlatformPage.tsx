@@ -256,7 +256,11 @@ function avance(t: TenantRow): { pct: number; desde: string | null; hasta: strin
   const a = new Date(ini).getTime();
   const b = new Date(fin).getTime();
   if (b <= a) return null;
-  return { pct: Math.max(0, Math.min(100, ((Date.now() - a) / (b - a)) * 100)), desde: ini, hasta: fin };
+  return {
+    pct: Math.max(0, Math.min(100, ((Date.now() - a) / (b - a)) * 100)),
+    desde: ini,
+    hasta: fin,
+  };
 }
 
 /** Tarjeta de un negocio: color por estado, barra de periodo y entrada con retraso. */
@@ -264,7 +268,8 @@ function NegocioCard({ t, i, onAbrir }: { t: TenantRow; i: number; onAbrir: () =
   const tono: Tono = t.status ? (ESTADO_TONO[t.status] ?? 'info') : 'warning';
   const c = TONO[tono];
   const av = avance(t);
-  const barra = av && av.pct > 90 ? TONO.danger.barra : av && av.pct > 75 ? TONO.warning.barra : c.barra;
+  const barra =
+    av && av.pct > 90 ? TONO.danger.barra : av && av.pct > 75 ? TONO.warning.barra : c.barra;
   return (
     <button
       onClick={onAbrir}
@@ -298,7 +303,8 @@ function NegocioCard({ t, i, onAbrir }: { t: TenantRow; i: number; onAbrir: () =
         <div>
           <div className="mb-1 flex items-center justify-between text-[11px] text-muted">
             <span className="inline-flex items-center gap-1">
-              <CalendarClock size={11} /> {t.status === 'trial' ? 'Prueba' : 'Compró'} {fecha(av.desde)}
+              <CalendarClock size={11} /> {t.status === 'trial' ? 'Prueba' : 'Compró'}{' '}
+              {fecha(av.desde)}
             </span>
             <span>vence {fecha(av.hasta)}</span>
           </div>
@@ -317,7 +323,10 @@ function NegocioCard({ t, i, onAbrir }: { t: TenantRow; i: number; onAbrir: () =
 
       <div className="flex items-center justify-end gap-1 text-[12px] font-semibold text-muted opacity-70 transition-[opacity,color] group-hover:text-fg group-hover:opacity-100">
         Ver detalle
-        <ArrowRight size={13} className="transition-transform duration-200 group-hover:translate-x-1" />
+        <ArrowRight
+          size={13}
+          className="transition-transform duration-200 group-hover:translate-x-1"
+        />
       </div>
     </button>
   );
@@ -375,7 +384,9 @@ export function PlatformPage() {
     if (filtro === 'active') return t.status === 'active';
     if (filtro === 'trial') return t.status === 'trial';
     if (filtro === 'problema')
-      return !t.status || ['trial_expired', 'past_due', 'suspended', 'cancelled'].includes(t.status);
+      return (
+        !t.status || ['trial_expired', 'past_due', 'suspended', 'cancelled'].includes(t.status)
+      );
     return true;
   });
 
@@ -387,7 +398,12 @@ export function PlatformPage() {
 
   return (
     <div className="min-h-full bg-bg">
-      <a href="#contenido" className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-theme focus:bg-surface focus:px-3 focus:py-2">Saltar al contenido</a>
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-2 focus:top-2 focus:z-50 focus:rounded-theme focus:bg-surface focus:px-3 focus:py-2"
+      >
+        Saltar al contenido
+      </a>
       {/*
         En móvil la cabecera se apila, y no por gusto.
 
@@ -417,7 +433,10 @@ export function PlatformPage() {
         </div>
       </header>
 
-      <nav aria-label="Secciones" className="flex gap-1 overflow-x-auto border-b border-border bg-surface px-4">
+      <nav
+        aria-label="Secciones"
+        className="flex gap-1 overflow-x-auto border-b border-border bg-surface px-4"
+      >
         {pestanas.map((p) => (
           <button
             key={p.id}
@@ -427,7 +446,9 @@ export function PlatformPage() {
             }}
             aria-current={!negocioId && pestana === p.id ? 'page' : undefined}
             className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] font-semibold ${
-              !negocioId && pestana === p.id ? 'border-primary text-fg' : 'border-transparent text-muted hover:text-fg'
+              !negocioId && pestana === p.id
+                ? 'border-primary text-fg'
+                : 'border-transparent text-muted hover:text-fg'
             }`}
           >
             <p.icon size={15} /> {p.label}
@@ -436,117 +457,129 @@ export function PlatformPage() {
       </nav>
 
       <main id="contenido">
-      {!negocioId && pestana === 'operadores' && (
-        <div className="p-4">
-          <OperadoresModal onClose={irANegocios} />
-        </div>
-      )}
-      {!negocioId && pestana === 'planes' && (
-        <div className="p-4">
-          <PlanesModal onClose={irANegocios} />
-        </div>
-      )}
-      {!negocioId && pestana === 'cuenta' && (
-        <div className="p-4">
-          <MiCuentaModal onClose={irANegocios} />
-        </div>
-      )}
-
-      {!negocioId && pestana === 'negocios' && (
-      <div className="flex flex-col gap-4 p-4">
-        {metrics && (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <Tile i={0} tono="success" icon={TrendingUp} label="MRR" value={`Bs. ${metrics.mrr}`} hint="suscripciones al día" />
-            <Tile
-              i={1}
-              tono="warning"
-              icon={AlertTriangle}
-              label="En riesgo"
-              value={`Bs. ${metrics.mrrEnRiesgo}`}
-              hint="morosas, aún operando"
-            />
-            <Tile
-              i={2}
-              tono="primary"
-              icon={Building2}
-              label="Negocios"
-              value={String(metrics.totalNegocios)}
-              hint={resumenEstados(metrics.porEstado)}
-            />
-            <Tile
-              i={3}
-              tono="info"
-              icon={Users}
-              label="Este mes"
-              value={`+${metrics.altasDelMes} / −${metrics.bajasDelMes}`}
-              hint="altas y bajas"
-            />
-            <Tile
-              i={4}
-              tono="danger"
-              icon={CalendarClock}
-              label="Por vencer"
-              value={String(metrics.porVencer + metrics.enGracia + metrics.soloLectura)}
-              hint={`${metrics.porVencer} a ≤15 días · ${metrics.enGracia} en gracia · ${metrics.soloLectura} solo lectura`}
-            />
+        {!negocioId && pestana === 'operadores' && (
+          <div className="p-4">
+            <OperadoresModal onClose={irANegocios} />
+          </div>
+        )}
+        {!negocioId && pestana === 'planes' && (
+          <div className="p-4">
+            <PlanesModal onClose={irANegocios} />
+          </div>
+        )}
+        {!negocioId && pestana === 'cuenta' && (
+          <div className="p-4">
+            <MiCuentaModal onClose={irANegocios} />
           </div>
         )}
 
-        <div className="relative">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
-          <Input
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            placeholder="Buscar por nombre o subdominio…"
-            aria-label="Buscar negocio"
-            className="pl-9"
+        {!negocioId && pestana === 'negocios' && (
+          <div className="flex flex-col gap-4 p-4">
+            {metrics && (
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                <Tile
+                  i={0}
+                  tono="success"
+                  icon={TrendingUp}
+                  label="MRR"
+                  value={`Bs. ${metrics.mrr}`}
+                  hint="suscripciones al día"
+                />
+                <Tile
+                  i={1}
+                  tono="warning"
+                  icon={AlertTriangle}
+                  label="En riesgo"
+                  value={`Bs. ${metrics.mrrEnRiesgo}`}
+                  hint="morosas, aún operando"
+                />
+                <Tile
+                  i={2}
+                  tono="primary"
+                  icon={Building2}
+                  label="Negocios"
+                  value={String(metrics.totalNegocios)}
+                  hint={resumenEstados(metrics.porEstado)}
+                />
+                <Tile
+                  i={3}
+                  tono="info"
+                  icon={Users}
+                  label="Este mes"
+                  value={`+${metrics.altasDelMes} / −${metrics.bajasDelMes}`}
+                  hint="altas y bajas"
+                />
+                <Tile
+                  i={4}
+                  tono="danger"
+                  icon={CalendarClock}
+                  label="Por vencer"
+                  value={String(metrics.porVencer + metrics.enGracia + metrics.soloLectura)}
+                  hint={`${metrics.porVencer} a ≤15 días · ${metrics.enGracia} en gracia · ${metrics.soloLectura} solo lectura`}
+                />
+              </div>
+            )}
+
+            <div className="relative">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+              <Input
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                placeholder="Buscar por nombre o subdominio…"
+                aria-label="Buscar negocio"
+                className="pl-9"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar negocios">
+              {FILTROS.map((f) => {
+                const activo = filtro === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    role="tab"
+                    aria-selected={activo}
+                    onClick={() => setFiltro(f.id)}
+                    className={`rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-[transform,background-color,color,border-color] duration-150 active:scale-95 ${
+                      activo
+                        ? 'border-primary bg-primary text-primary-fg shadow-sm'
+                        : 'border-field bg-surface text-muted hover:border-primary/40 hover:text-fg'
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            {isLoading && <div className="p-4 text-muted">Cargando…</div>}
+            {visibles.length === 0 && !isLoading && (
+              <div className="rounded-theme border border-dashed border-border p-8 text-center text-muted">
+                No hay negocios que coincidan.
+              </div>
+            )}
+            <div key={filtro + busqueda} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {visibles.map((t, i) => (
+                <NegocioCard
+                  key={t.id}
+                  t={t}
+                  i={i}
+                  onAbrir={() => navigate(`/plataforma/negocios/${t.id}`)}
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {negocioId && (
+          <NegocioPagina
+            id={negocioId}
+            planes={planes ?? []}
+            onVolver={() => navigate('/plataforma')}
+            onGuardado={() => {
+              qc.invalidateQueries({ queryKey: ['platform'] });
+            }}
           />
-        </div>
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar negocios">
-          {FILTROS.map((f) => {
-            const activo = filtro === f.id;
-            return (
-              <button
-                key={f.id}
-                role="tab"
-                aria-selected={activo}
-                onClick={() => setFiltro(f.id)}
-                className={`rounded-full border px-3.5 py-1.5 text-[13px] font-semibold transition-[transform,background-color,color,border-color] duration-150 active:scale-95 ${
-                  activo
-                    ? 'border-primary bg-primary text-primary-fg shadow-sm'
-                    : 'border-field bg-surface text-muted hover:border-primary/40 hover:text-fg'
-                }`}
-              >
-                {f.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {isLoading && <div className="p-4 text-muted">Cargando…</div>}
-        {visibles.length === 0 && !isLoading && (
-          <div className="rounded-theme border border-dashed border-border p-8 text-center text-muted">
-            No hay negocios que coincidan.
-          </div>
         )}
-        <div key={filtro + busqueda} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {visibles.map((t, i) => (
-            <NegocioCard key={t.id} t={t} i={i} onAbrir={() => navigate(`/plataforma/negocios/${t.id}`)} />
-          ))}
-        </div>
-      </div>
-      )}
-
-      {negocioId && (
-        <NegocioPagina
-          id={negocioId}
-          planes={planes ?? []}
-          onVolver={() => navigate('/plataforma')}
-          onGuardado={() => {
-            qc.invalidateQueries({ queryKey: ['platform'] });
-          }}
-        />
-      )}
       </main>
     </div>
   );
@@ -677,7 +710,11 @@ function TenantModal({
           <div className={`flex items-center justify-between ${pagina ? 'hidden' : ''}`}>
             <span className="text-[13px] text-muted">{data.business.slug ?? 'sin subdominio'}</span>
             <div className="flex items-center gap-2">
-              {data.periodo ? <PeriodoBadge periodo={data.periodo} /> : <VenceBadge vence={data.vence} />}
+              {data.periodo ? (
+                <PeriodoBadge periodo={data.periodo} />
+              ) : (
+                <VenceBadge vence={data.vence} />
+              )}
               <EstadoBadge status={sub?.status ?? null} />
             </div>
           </div>
@@ -710,7 +747,9 @@ function TenantModal({
               </div>
               <div>
                 <dt className="text-[11px] uppercase tracking-[0.06em] text-muted">Pagó</dt>
-                <dd className="font-semibold">{sub.billedAmount ? `Bs. ${sub.billedAmount}` : '—'}</dd>
+                <dd className="font-semibold">
+                  {sub.billedAmount ? `Bs. ${sub.billedAmount}` : '—'}
+                </dd>
               </div>
             </dl>
           )}
@@ -774,7 +813,11 @@ function TenantModal({
 
           <div>
             <label className="mb-1 block text-[13px] font-semibold">Estado</label>
-            <Select aria-label="Estado" value={estadoActual} onChange={(e) => setEstado(e.target.value)}>
+            <Select
+              aria-label="Estado"
+              value={estadoActual}
+              onChange={(e) => setEstado(e.target.value)}
+            >
               {estadosElegibles.map((s) => (
                 <option key={s} value={s}>
                   {ESTADO[s]?.label ?? s}
@@ -1091,7 +1134,6 @@ function RescateAcceso({ tenantId, userId }: { tenantId: string; userId: string 
   );
 }
 
-
 const MOV: Record<Movimiento['tipo'], { etiqueta: string; tono: Tono; icon: typeof History }> = {
   venta: { etiqueta: 'Venta', tono: 'success', icon: ReceiptText },
   anulacion: { etiqueta: 'Anulación', tono: 'danger', icon: ReceiptText },
@@ -1142,20 +1184,25 @@ function NegocioPagina({
 
       {data && (
         <>
-          <div
-            className="flex flex-wrap items-center gap-3 rounded-theme border border-border bg-surface p-4 motion-safe:animate-rise"
-          >
+          <div className="flex flex-wrap items-center gap-3 rounded-theme border border-border bg-surface p-4 motion-safe:animate-rise">
             <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-track text-lg font-bold">
               {data.business.name.slice(0, 1).toUpperCase()}
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="truncate text-xl font-bold tracking-[-0.02em]">{data.business.name}</h2>
+              <h2 className="truncate text-xl font-bold tracking-[-0.02em]">
+                {data.business.name}
+              </h2>
               <div className="text-[13px] text-muted">
-                {data.business.slug ?? 'sin subdominio'} · cliente desde {fecha(data.business.createdAt)}
+                {data.business.slug ?? 'sin subdominio'} · cliente desde{' '}
+                {fecha(data.business.createdAt)}
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2">
-              {data.periodo ? <PeriodoBadge periodo={data.periodo} /> : <VenceBadge vence={data.vence} />}
+              {data.periodo ? (
+                <PeriodoBadge periodo={data.periodo} />
+              ) : (
+                <VenceBadge vence={data.vence} />
+              )}
               <EstadoBadge status={sub?.status ?? null} />
               {data.business.slug && (
                 <a
@@ -1180,7 +1227,9 @@ function NegocioPagina({
               ] as const
             ).map(([label, valor, t], i) => (
               <TarjetaTono key={label} tono={t} i={i + 1} className="p-3">
-                <div className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted">{label}</div>
+                <div className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted">
+                  {label}
+                </div>
                 <div className="text-2xl font-bold tracking-[-0.02em]">{valor}</div>
               </TarjetaTono>
             ))}
@@ -1191,7 +1240,9 @@ function NegocioPagina({
               <History size={15} /> Últimos 5 movimientos
               <span className="ml-auto text-[12px] font-normal text-muted">
                 Última venta:{' '}
-                {data.usage.lastSaleAt ? new Date(data.usage.lastSaleAt).toLocaleDateString('es-BO') : 'nunca'}
+                {data.usage.lastSaleAt
+                  ? new Date(data.usage.lastSaleAt).toLocaleDateString('es-BO')
+                  : 'nunca'}
               </span>
             </div>
             {data.usage.movimientos.length === 0 ? (
@@ -1206,7 +1257,9 @@ function NegocioPagina({
                       style={retraso(i + 6)}
                       className="flex items-center gap-3 rounded-theme px-1 py-2 motion-safe:animate-rise"
                     >
-                      <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-track ${d.tono === 'danger' ? 'text-danger' : 'text-muted'}`}>
+                      <span
+                        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-track ${d.tono === 'danger' ? 'text-danger' : 'text-muted'}`}
+                      >
                         <d.icon size={15} />
                       </span>
                       <div className="min-w-0 flex-1">
@@ -1216,9 +1269,15 @@ function NegocioPagina({
                         <div className="text-[12px] text-muted">{m.usuario ?? 'Sistema'}</div>
                       </div>
                       <time className="shrink-0 text-right text-[12px] text-muted">
-                        {new Date(m.fecha).toLocaleDateString('es-BO', { day: 'numeric', month: 'short' })}
+                        {new Date(m.fecha).toLocaleDateString('es-BO', {
+                          day: 'numeric',
+                          month: 'short',
+                        })}
                         <br />
-                        {new Date(m.fecha).toLocaleTimeString('es-BO', { hour: '2-digit', minute: '2-digit' })}
+                        {new Date(m.fecha).toLocaleTimeString('es-BO', {
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
                       </time>
                     </li>
                   );

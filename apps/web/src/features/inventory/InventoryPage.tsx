@@ -56,7 +56,10 @@ export function InventoryPage() {
       ),
   });
   const norm = (s: string) =>
-    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
   const vista = (rows ?? []).filter(
     (r) =>
       (!buscando || norm(`${r.productName} ${r.sku}`).includes(norm(buscar.trim()))) &&
@@ -168,7 +171,9 @@ export function InventoryPage() {
           )}
           {[...porProducto.entries()].map(([id, g]) => {
             const mia = g.filas.find((f) => f.locationId === user?.locationId);
-            const enOtras = g.filas.filter((f) => f.locationId !== user?.locationId && f.quantity > 0);
+            const enOtras = g.filas.filter(
+              (f) => f.locationId !== user?.locationId && f.quantity > 0,
+            );
             return (
               <div key={id} className="rounded-theme border border-field bg-surface p-4 shadow-sm">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -179,7 +184,9 @@ export function InventoryPage() {
                   {user?.locationId && (
                     <span
                       className={`rounded-full px-2.5 py-[3px] text-[11px] font-bold ${
-                        mia && mia.quantity > 0 ? 'bg-success-bg text-success' : 'bg-danger-bg text-danger'
+                        mia && mia.quantity > 0
+                          ? 'bg-success-bg text-success'
+                          : 'bg-danger-bg text-danger'
                       }`}
                     >
                       {mia && mia.quantity > 0
@@ -563,7 +570,11 @@ function TransferModal({
             </Select>
           </div>
         </div>
-        <Campo etiqueta="Cantidad" ayuda={`Disponible en el origen: ${disponible}`} error={v.ver('quantity')}>
+        <Campo
+          etiqueta="Cantidad"
+          ayuda={`Disponible en el origen: ${disponible}`}
+          error={v.ver('quantity')}
+        >
           <Input
             value={quantity}
             inputMode="numeric"

@@ -183,7 +183,10 @@ export function ProductsPage() {
       </div>
 
       {aviso && (
-        <p role="alert" className="rounded-theme border border-danger/40 bg-danger/[0.05] p-3 text-sm text-danger">
+        <p
+          role="alert"
+          className="rounded-theme border border-danger/40 bg-danger/[0.05] p-3 text-sm text-danger"
+        >
           {aviso}
         </p>
       )}
@@ -408,7 +411,7 @@ export function ProductsPage() {
           onClose={() => setHistory(null)}
         />
       )}
-          {pedido && (
+      {pedido && (
         <ConfirmarModal
           titulo={
             pedido.que === 'baja'
@@ -419,7 +422,11 @@ export function ProductsPage() {
           }
           tono={pedido.que === 'reactivar' ? 'normal' : 'peligro'}
           confirmar={
-            pedido.que === 'baja' ? 'Dar de baja' : pedido.que === 'reactivar' ? 'Reactivar' : 'Eliminar'
+            pedido.que === 'baja'
+              ? 'Dar de baja'
+              : pedido.que === 'reactivar'
+                ? 'Reactivar'
+                : 'Eliminar'
           }
           pendiente={gestionando}
           error={errorGestion}
@@ -428,9 +435,8 @@ export function ProductsPage() {
               {pedido.motivo && <p className="mb-2 font-semibold">{pedido.motivo}</p>}
               {pedido.que === 'baja' && (
                 <p>
-                  {pedido.motivo ? '¿Darlo de baja ahora? ' : ''}
-                  «{pedido.p.name}» deja de salir en ventas e inventario, pero conserva su
-                  historial. Se puede reactivar.
+                  {pedido.motivo ? '¿Darlo de baja ahora? ' : ''}«{pedido.p.name}» deja de salir en
+                  ventas e inventario, pero conserva su historial. Se puede reactivar.
                 </p>
               )}
               {pedido.que === 'reactivar' && (
@@ -509,7 +515,8 @@ function ProductForm({
   for (const f of schema) {
     const v = String(form.attributes[f.key] ?? '');
     if (f.required && v.trim() === '') errores[`attr:${f.key}`] = `${f.label} es obligatorio`;
-    else if (v.length > LIMITES.nombreMax) errores[`attr:${f.key}`] = `Máximo ${LIMITES.nombreMax} caracteres`;
+    else if (v.length > LIMITES.nombreMax)
+      errores[`attr:${f.key}`] = `Máximo ${LIMITES.nombreMax} caracteres`;
   }
   const ver = (k: string) => (intentado || tocados.has(k) ? errores[k] : undefined);
   const tocar = (k: string) => setTocados((t) => new Set(t).add(k));
@@ -603,7 +610,10 @@ function ProductForm({
               setError(null);
               if (hayErrores) {
                 setError('Corrige los campos marcados en rojo.');
-                setTimeout(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0);
+                setTimeout(
+                  () => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
+                  0,
+                );
                 return;
               }
               save.mutate();
@@ -617,7 +627,11 @@ function ProductForm({
     >
       <div className="flex flex-col gap-6">
         <Seccion titulo="Producto">
-          <Campo etiqueta="Nombre" ayuda="Como lo busca y lo reconoce quien vende." error={ver('name')}>
+          <Campo
+            etiqueta="Nombre"
+            ayuda="Como lo busca y lo reconoce quien vende."
+            error={ver('name')}
+          >
             <Input
               maxLength={LIMITES.nombreMax + 20}
               onBlur={() => tocar('name')}
@@ -630,7 +644,9 @@ function ProductForm({
               negocio). Escribible invitaba a duplicados y erratas que ya viajaron a recibos. */}
           <Campo
             etiqueta="Código (SKU)"
-            ayuda={isNew ? 'Lo asigna el sistema al guardar.' : 'Lo asigna el sistema; no se edita.'}
+            ayuda={
+              isNew ? 'Lo asigna el sistema al guardar.' : 'Lo asigna el sistema; no se edita.'
+            }
           >
             <Input
               readOnly
@@ -640,7 +656,10 @@ function ProductForm({
             />
           </Campo>
           {isNew && (
-            <Campo etiqueta="¿Dónde se guarda?" ayuda="La sucursal o central que recibe el stock inicial.">
+            <Campo
+              etiqueta="¿Dónde se guarda?"
+              ayuda="La sucursal o central que recibe el stock inicial."
+            >
               <Select
                 value={form.locationId}
                 onChange={(e) => setForm({ ...form, locationId: e.target.value })}
@@ -654,7 +673,12 @@ function ProductForm({
               </Select>
             </Campo>
           )}
-          <Campo etiqueta="Descripción" opcional ayuda="Talla, color, sabor, medida… lo que lo distingue de otro parecido." error={ver('description')}>
+          <Campo
+            etiqueta="Descripción"
+            opcional
+            ayuda="Talla, color, sabor, medida… lo que lo distingue de otro parecido."
+            error={ver('description')}
+          >
             <textarea
               rows={3}
               onBlur={() => tocar('description')}
@@ -673,7 +697,11 @@ function ProductForm({
         </Seccion>
 
         <Seccion titulo="Precios">
-          <Campo etiqueta="Precio de venta" ayuda={`Lo que paga el cliente, en bolivianos (máx. ${LIMITES.importeMax}).`} error={ver('price')}>
+          <Campo
+            etiqueta="Precio de venta"
+            ayuda={`Lo que paga el cliente, en bolivianos (máx. ${LIMITES.importeMax}).`}
+            error={ver('price')}
+          >
             <Input
               onBlur={() => tocar('price')}
               inputMode="decimal"
@@ -715,7 +743,11 @@ function ProductForm({
         {isNew && (
           <Seccion titulo="Stock">
             <div className="grid grid-cols-2 gap-3">
-              <Campo etiqueta="Stock inicial" ayuda="Cuántas unidades hay hoy." error={ver('initialStock')}>
+              <Campo
+                etiqueta="Stock inicial"
+                ayuda="Cuántas unidades hay hoy."
+                error={ver('initialStock')}
+              >
                 <Input
                   onBlur={() => tocar('initialStock')}
                   inputMode="numeric"
@@ -724,7 +756,11 @@ function ProductForm({
                   onChange={(e) => setForm({ ...form, initialStock: e.target.value })}
                 />
               </Campo>
-              <Campo etiqueta="Stock mínimo" ayuda="Te avisamos al llegar a esta cantidad." error={ver('minStock')}>
+              <Campo
+                etiqueta="Stock mínimo"
+                ayuda="Te avisamos al llegar a esta cantidad."
+                error={ver('minStock')}
+              >
                 <Input
                   onBlur={() => tocar('minStock')}
                   inputMode="numeric"
@@ -740,7 +776,12 @@ function ProductForm({
         {schema.length > 0 && (
           <Seccion titulo="Detalles del rubro">
             {schema.map((f) => (
-              <Campo key={f.key} etiqueta={f.label} opcional={!f.required} error={ver(`attr:${f.key}`)}>
+              <Campo
+                key={f.key}
+                etiqueta={f.label}
+                opcional={!f.required}
+                error={ver(`attr:${f.key}`)}
+              >
                 <Input
                   onBlur={() => tocar(`attr:${f.key}`)}
                   value={String(form.attributes[f.key] ?? '')}
