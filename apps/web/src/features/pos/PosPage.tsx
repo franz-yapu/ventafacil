@@ -444,6 +444,7 @@ export function PosPage() {
 
   return (
     <div className="grid gap-4 p-4 md:grid-cols-[1fr_360px]">
+      <h1 className="sr-only">Vender</h1>
       <div className="flex flex-col gap-3">
         {!online && (
           <div className="flex items-center gap-2.5 rounded-theme border border-warning/25 bg-warning-bg px-3.5 py-2.5 text-sm font-semibold text-warning">
@@ -530,15 +531,29 @@ export function PosPage() {
                 disabled={out}
                 title={out ? `${p.name} · sin existencias en esta sucursal` : undefined}
                 className={cn(
-                  'flex min-h-[112px] flex-col gap-2 rounded-theme border bg-surface p-3.5 text-left shadow-card transition',
+                  'flex min-h-[112px] gap-3 rounded-theme border bg-surface p-3.5 text-left shadow-card transition',
                   out
                     ? 'cursor-not-allowed opacity-55'
                     : 'hover:shadow-card-hover active:scale-[0.98]',
                   cardBorder,
                 )}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-mono text-[10px] font-medium text-muted">{p.sku}</span>
+                {/*
+                  La foto va a la IZQUIERDA, en un cuadro pequeño, y no como banda arriba.
+
+                  La banda ancha dejaba huecos a los lados con productos altos o largos y
+                  gastaba 80 px de alto por tarjeta. Un cuadro de 64 px con la foto ENTERA
+                  (`object-contain`, que ahora llega con su proporción) ocupa menos, no
+                  recorta y deja ver más productos por pantalla. Sin foto, la tarjeta es la
+                  de siempre: el texto ocupa todo el ancho.
+                */}
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <div className={p.imageUrl ? 'flex items-center gap-2' : 'flex items-start justify-between gap-2'}>
+                  {p.imageUrl && (
+                    <Miniatura url={p.imageUrl} className="h-12 w-12 shrink-0" icono={18} />
+                  )}
+                  <div className={p.imageUrl ? 'flex min-w-0 flex-col gap-1' : 'contents'}>
+                  <span className="truncate font-mono text-[10px] font-medium text-muted">{p.sku}</span>
                   {remaining != null && (
                     <span
                       className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-bold ${textCol}`}
@@ -547,6 +562,7 @@ export function PosPage() {
                       {stockLabel}
                     </span>
                   )}
+                  </div>
                 </div>
                 {/*
                   La foto, sólo si en este catálogo hay fotos.
@@ -573,9 +589,6 @@ export function PosPage() {
                   compacte. Las alturas quedan desiguales dentro de la rejilla; si al usarlo
                   molesta, volver atrás es cambiar esta línea.
                 */}
-                {p.imageUrl && (
-                  <Miniatura url={p.imageUrl} className="h-20 w-full rounded-theme" icono={20} />
-                )}
                 <span className="line-clamp-2 text-[15px] font-semibold leading-tight">
                   {p.name}
                 </span>
@@ -596,6 +609,7 @@ export function PosPage() {
                   <span className="flex-1" />
                 )}
                 <span className="text-[17px] font-bold">{money(p.price)}</span>
+                </div>
               </button>
             );
           })}
@@ -630,8 +644,13 @@ export function PosPage() {
           )}
           <div className="flex-1" />
           {cart.length > 0 && (
-            <button onClick={() => setCart([])} className="text-sm text-muted hover:text-fg">
-              Vaciar
+            <button
+              onClick={() => setCart([])}
+              title="Quitar todo del carrito"
+              className="inline-flex h-9 items-center gap-1.5 rounded-theme border border-danger/30 bg-danger-bg px-3 text-sm font-bold text-danger transition-[transform,background-color] hover:bg-danger/15 active:scale-[.97]"
+            >
+              <Trash2 size={15} />
+              Vaciar carrito
             </button>
           )}
           <button

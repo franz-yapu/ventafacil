@@ -42,6 +42,14 @@ function errorDeVenta(e: unknown): { status: number; error: string; code?: strin
       code: 'discount_limit',
     };
   }
+  const precioBajo = /PRICE_LOW:(.+)$/.exec(s);
+  if (precioBajo) {
+    return {
+      status: 409,
+      error: `El precio de «${precioBajo[1]}» es menor al del catálogo. Actualiza el catálogo e inténtalo de nuevo.`,
+      code: 'precio_bajo',
+    };
+  }
   if (s.includes('PRODUCT_SCOPE')) {
     return { status: 400, error: 'Algún producto de la venta no es de este negocio' };
   }

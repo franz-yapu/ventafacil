@@ -100,6 +100,7 @@ export function App() {
     <ThemeProvider>
       <Routes>
         <Route path="/plataforma" element={<PlatformArea />} />
+        <Route path="/plataforma/negocios/:id" element={<PlatformArea />} />
         {/* Rutas sin sesión. `/registro` es del dominio base (quien llega no tiene aún
             subdominio); las otras tres se abren desde un enlace del correo, ya en el
             subdominio del negocio. */}

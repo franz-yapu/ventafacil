@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { KeyRound, ShieldCheck, UserPlus } from 'lucide-react';
+import { KeyRound, ShieldCheck, UserPlus, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,7 @@ import { Campo } from '@/components/ui/field';
 import { useValidacion } from '@/lib/useValidacion';
 import { correo, largo, requerido, todas } from '@/lib/validar';
 import { LIMITES } from '@ventafacil/shared';
-import { Modal } from '@/components/ui/modal';
+import { BannerSeccion, TarjetaTono } from '@/features/platform/estilos';
 import { usePlatformAuth } from '@/features/platform/PlatformAuthProvider';
 import { platformApi } from '@/lib/api';
 
@@ -28,7 +28,7 @@ interface Operador {
  * No hay borrar, sólo desactivar: la bitácora de plataforma apunta a estas cuentas, y
  * "quién suspendió a este cliente" tiene que seguir leyéndose dentro de dos años.
  */
-export function OperadoresModal({ onClose }: { onClose: () => void }) {
+export function OperadoresModal(_: { onClose: () => void }) {
   const { admin } = usePlatformAuth();
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -50,13 +50,31 @@ export function OperadoresModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <Modal open inline onClose={onClose} title="Operadores del panel">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+      <BannerSeccion
+        tono="info"
+        icon={Users}
+        titulo="Operadores del panel"
+        descripcion="Quién puede entrar a esta plataforma. Solo un operador principal da de alta o desactiva."
+        acciones={
+          !creando && (
+            <Button variant="outline" onClick={() => setCreando(true)}>
+              <UserPlus size={15} /> Nuevo operador
+            </Button>
+          )
+        }
+      />
       <div className="flex flex-col gap-4">
         {isLoading && <div className="text-muted">Cargando…</div>}
 
-        <ul className="divide-y divide-border">
-          {operadores?.map((o) => (
-            <li key={o.id} className="flex items-center justify-between gap-3 py-3">
+        <ul className="grid gap-3 md:grid-cols-2">
+          {operadores?.map((o, i) => (
+            <li key={o.id} className="list-none">
+            <TarjetaTono
+              tono={!o.isActive ? 'danger' : o.isOwner ? 'primary' : 'info'}
+              i={i + 1}
+              className="flex items-center justify-between gap-3 p-4"
+            >
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="truncate text-sm font-semibold">{o.name}</span>
@@ -98,6 +116,7 @@ export function OperadoresModal({ onClose }: { onClose: () => void }) {
                   </>
                 )}
               </div>
+            </TarjetaTono>
             </li>
           ))}
         </ul>
@@ -112,15 +131,9 @@ export function OperadoresModal({ onClose }: { onClose: () => void }) {
             }}
             onCancelar={() => setCreando(false)}
           />
-        ) : (
-          <Button variant="outline" onClick={() => setCreando(true)}>
-            <UserPlus size={15} /> Nuevo operador
-          </Button>
-        )}
-
-        <Button onClick={onClose}>Cerrar</Button>
+        ) : null}
       </div>
-    </Modal>
+    </div>
   );
 }
 

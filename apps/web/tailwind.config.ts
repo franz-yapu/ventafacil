@@ -26,8 +26,10 @@ import type { Config } from 'tailwindcss';
  */
 const token =
   (nombre: string) =>
-  ({ opacityValue }: { opacityValue?: string }) =>
-    opacityValue === undefined || opacityValue.includes('var(')
+  ({ opacityValue }: { opacityValue?: string | number }) =>
+    // Los degradados (`from-x`) piden el color con alfa NUMÉRICO 0 para el extremo
+    // transparente; `includes` sólo existe en strings.
+    opacityValue === undefined || String(opacityValue).includes('var(')
       ? `var(${nombre})`
       : `color-mix(in srgb, var(${nombre}) calc(${opacityValue} * 100%), transparent)`;
 

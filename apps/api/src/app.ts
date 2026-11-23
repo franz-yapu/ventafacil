@@ -77,6 +77,16 @@ export async function buildApp(
   */
   await app.register(helmet, { contentSecurityPolicy: false });
 
+  // Un DELETE/POST sin cuerpo pero con `content-type: application/json` (lo hacen muchos
+  // clientes) no es un error del usuario: se trata como cuerpo vacío en vez de dar 400.
+  // Se reutiliza el parser por defecto de Fastify (protege de `__proto__`/`constructor`) y
+  // sólo se intercepta el cuerpo vacío.
+  const parseJson = app.getDefaultJsonParser('error', 'ignore');
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    if (String(body ?? '').trim() === '') return done(null, undefined);
+    parseJson(req, body as string, done);
+  });
+
   // Con un subdominio por cliente, los orígenes no se pueden enumerar: `CORS_ORIGINS`
   // admite comodín (`https://*.ventafacil.com`) y aquí se resuelve por petición.
   await app.register(cors, {

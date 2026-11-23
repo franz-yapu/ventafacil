@@ -6,7 +6,8 @@ import { Campo } from '@/components/ui/field';
 import { useValidacion } from '@/lib/useValidacion';
 import { correo as reglaCorreo, largo, requerido, todas } from '@/lib/validar';
 import { LIMITES } from '@ventafacil/shared';
-import { Modal } from '@/components/ui/modal';
+import { BannerSeccion, TarjetaTono } from '@/features/platform/estilos';
+import { KeyRound, UserCog } from 'lucide-react';
 import { usePlatformAuth } from '@/features/platform/PlatformAuthProvider';
 import { platformApi } from '@/lib/api';
 
@@ -17,7 +18,7 @@ import { platformApi } from '@/lib/api';
  * El cambio de contraseña pide la actual aunque la sesión ya esté abierta. No es un
  * trámite: es lo único que separa "me dejé el panel abierto" de "me quitaron la cuenta".
  */
-export function MiCuentaModal({ onClose }: { onClose: () => void }) {
+export function MiCuentaModal(_: { onClose: () => void }) {
   const { admin, logout, refrescar } = usePlatformAuth();
   const [nombre, setNombre] = useState(admin?.name ?? '');
   const [correo, setCorreo] = useState(admin?.email ?? '');
@@ -34,7 +35,7 @@ export function MiCuentaModal({ onClose }: { onClose: () => void }) {
    * siguiente petición. Lo que sí se arregla es lo otro — que cerrando el modal en ese
    * segundo y medio te echaba sin que hubieras llegado a leer por qué.
    */
-  const [saliendo, setSaliendo] = useState(false);
+  const [, setSaliendo] = useState(false);
 
   const vp = useValidacion(
     {
@@ -89,9 +90,16 @@ export function MiCuentaModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <Modal open inline onClose={saliendo ? () => undefined : onClose} title="Mi cuenta">
-      <div className="flex flex-col gap-5">
-        <div className="flex flex-col gap-3">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+      <BannerSeccion
+        tono="success"
+        icon={UserCog}
+        titulo="Mi cuenta"
+        descripcion={`${admin?.name ?? ''} · ${admin?.email ?? ''}`}
+      />
+      <div className="grid gap-4 md:grid-cols-2">
+        <TarjetaTono tono="info" i={1} className="flex flex-col gap-3 p-5">
+          <div className="text-[13px] font-semibold">Mis datos</div>
           <Campo etiqueta="Nombre" error={vp.ver('nombre')}>
             <Input
               value={nombre}
@@ -127,10 +135,12 @@ export function MiCuentaModal({ onClose }: { onClose: () => void }) {
           >
             {guardarPerfil.isPending ? 'Guardando…' : 'Guardar datos'}
           </Button>
-        </div>
+        </TarjetaTono>
 
-        <div className="border-t border-border pt-4">
-          <div className="mb-2 text-[13px] font-semibold">Cambiar contraseña</div>
+        <TarjetaTono tono="warning" i={2} className="p-5">
+          <div className="mb-2 flex items-center gap-1.5 text-[13px] font-semibold">
+            <KeyRound size={14} /> Cambiar contraseña
+          </div>
           <div className="flex flex-col gap-3">
             <Campo etiqueta="Contraseña actual" error={vc.ver('actual')}>
               <Input
@@ -158,13 +168,10 @@ export function MiCuentaModal({ onClose }: { onClose: () => void }) {
               {cambiarPassword.isPending ? 'Cambiando…' : 'Cambiar contraseña'}
             </Button>
           </div>
-        </div>
-
-        {error && <p className="text-[13px] text-danger">{error}</p>}
-        {aviso && <p className="text-[13px] text-success">{aviso}</p>}
-
-        <Button onClick={onClose}>Cerrar</Button>
+        </TarjetaTono>
       </div>
-    </Modal>
+      {error && <p className="text-[13px] text-danger">{error}</p>}
+      {aviso && <p className="text-[13px] text-success">{aviso}</p>}
+    </div>
   );
 }

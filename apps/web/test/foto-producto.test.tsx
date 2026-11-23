@@ -181,7 +181,7 @@ describe('elegir la foto en el formulario', () => {
   it('sin nada todavía, invita a elegir y dice el tope', () => {
     montarControl();
     expect(screen.getByRole('button', { name: /Elegir foto/ })).toBeTruthy();
-    expect(screen.getByText(/Se recorta al cuadro/)).toBeTruthy();
+    expect(screen.getByText(/sin recortarla/)).toBeTruthy();
   });
 
   it('con una preparada, enseña el AHORRO y avisa de que se sube al guardar', () => {

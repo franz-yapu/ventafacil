@@ -120,6 +120,12 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <TourProvider>
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-theme focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-semibold"
+      >
+        Saltar al contenido
+      </a>
       <div className="flex min-h-full flex-col md:flex-row">
         {/* ===== Sidebar (sólo escritorio) ===== */}
         <aside className="no-print hidden bg-nav text-nav-fg md:sticky md:top-0 md:flex md:h-screen md:w-[236px] md:shrink-0 md:flex-col">
@@ -230,7 +236,7 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* El hueco de abajo sale de la barra real (72px) más el área segura, en vez de
           un pb-24 a ojo que en algunos teléfonos tapaba la última fila. Va como clase y
           no en línea para que `md:pb-0` pueda ganarle en escritorio. */}
-        <main className="order-1 flex-1 pb-[calc(72px+env(safe-area-inset-bottom)+12px)] md:order-2 md:pb-0">
+        <main id="contenido" tabIndex={-1} className="order-1 flex-1 outline-none pb-[calc(72px+env(safe-area-inset-bottom)+12px)] md:order-2 md:pb-0">
           <div className="no-print sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface px-4">
             {/* En móvil no hay barra lateral: la marca vive aquí. */}
             <div className="flex min-w-0 items-center gap-2 md:hidden">

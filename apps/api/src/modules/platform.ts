@@ -193,6 +193,29 @@ export function mesesCumplidos(desde: Date, hasta: Date): number {
   return Math.max(0, n);
 }
 
+/** Nombres legibles para la bitácora del negocio que se enseña en el panel. */
+const ACCION: Record<string, string> = {
+  login: 'Inicio de sesión',
+  create: 'Alta de',
+  update: 'Cambio en',
+  delete: 'Eliminó',
+  deactivate: 'Baja de',
+  reactivate: 'Reactivó',
+  cancel: 'Anuló',
+  stock_adjust: 'Ajuste de stock',
+  transfer: 'Transferencia de',
+};
+const ENTIDAD: Record<string, string> = {
+  app_user: '',
+  product: 'producto',
+  inventory: 'inventario',
+  location: 'sucursal',
+  customer: 'comprador',
+  sale: 'venta',
+  business: 'negocio',
+  cash_register: 'caja',
+};
+
 export async function platformRoutes(app: FastifyInstance) {
   // ── Sesión ───────────────────────────────────────────────────
 
@@ -689,12 +712,63 @@ export async function platformRoutes(app: FastifyInstance) {
         .where(eq(schema.sale.businessId, id))
         .orderBy(desc(schema.sale.clientCreatedAt))
         .limit(1);
+      /*
+        Los 5 últimos movimientos del negocio: ventas (y anulaciones) más lo que quedó en su
+        bitácora que no sea una venta —esa ya sale como venta—. Se piden 5 de cada cosa y se
+        recorta tras mezclar: con 5 de una sola fuente, una racha de ventas escondería un
+        cambio de stock de hace una hora.
+      */
+      const ventas = await tx
+        .select({
+          fecha: schema.sale.clientCreatedAt,
+          estado: schema.sale.status,
+          recibo: schema.sale.receiptNumber,
+          total: schema.sale.total,
+          sucursal: schema.location.name,
+          usuario: schema.appUser.name,
+        })
+        .from(schema.sale)
+        .innerJoin(schema.location, eq(schema.location.id, schema.sale.locationId))
+        .innerJoin(schema.appUser, eq(schema.appUser.id, schema.sale.userId))
+        .where(eq(schema.sale.businessId, id))
+        .orderBy(desc(schema.sale.clientCreatedAt))
+        .limit(5);
+      const acciones = await tx
+        .select({
+          fecha: schema.auditLog.createdAt,
+          accion: schema.auditLog.action,
+          entidad: schema.auditLog.entity,
+          usuario: schema.appUser.name,
+        })
+        .from(schema.auditLog)
+        .leftJoin(schema.appUser, eq(schema.appUser.id, schema.auditLog.userId))
+        .where(and(eq(schema.auditLog.businessId, id), ne(schema.auditLog.action, 'sale')))
+        .orderBy(desc(schema.auditLog.createdAt))
+        .limit(5);
+      const movimientos = [
+        ...ventas.map((x) => ({
+          fecha: x.fecha,
+          tipo: x.estado === 'cancelled' ? ('anulacion' as const) : ('venta' as const),
+          detalle: `Recibo ${x.recibo ?? '—'} · Bs. ${x.total} · ${x.sucursal}`,
+          usuario: x.usuario as string | null,
+        })),
+        ...acciones.map((x) => ({
+          fecha: x.fecha,
+          tipo: 'accion' as const,
+          detalle: `${ACCION[x.accion] ?? x.accion} ${ENTIDAD[x.entidad] ?? x.entidad}`.trim(),
+          usuario: x.usuario,
+        })),
+      ]
+        .sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
+        .slice(0, 5);
+
       return {
         users: u?.n ?? 0,
         locations: l?.n ?? 0,
         products: p?.n ?? 0,
         sales: v?.n ?? 0,
         lastSaleAt: ultima?.at ?? null,
+        movimientos,
       };
     });
 

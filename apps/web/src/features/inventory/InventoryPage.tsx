@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeftRight, Boxes, History, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeftRight, Boxes, History, MapPin, Search, SlidersHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Exportar } from '@/components/Exportar';
@@ -38,11 +38,39 @@ export function InventoryPage() {
     queryKey: ['locations'],
     queryFn: () => api.get<Location[]>('/locations'),
   });
+  /*
+    Buscar mira TODAS las sucursales, sin importar cuál esté elegida.
+
+    Es la pregunta del mostrador: "¿tienen esto?" — y si aquí no hay, lo útil es poder decir
+    "en la central quedan 87, pásate o te lo transferimos". Limitar la búsqueda a la
+    sucursal elegida daría un "no hay" que muchas veces es falso para el negocio.
+  */
+  const [buscar, setBuscar] = useState('');
+  const [soloConStock, setSoloConStock] = useState(false);
+  const buscando = buscar.trim() !== '';
   const { data: rows, isLoading } = useQuery({
-    queryKey: ['inventory', locationId],
+    queryKey: ['inventory', buscando ? '' : locationId],
     queryFn: () =>
-      api.get<InventoryRow[]>(`/inventory${locationId ? `?locationId=${locationId}` : ''}`),
+      api.get<InventoryRow[]>(
+        `/inventory${!buscando && locationId ? `?locationId=${locationId}` : ''}`,
+      ),
   });
+  const norm = (s: string) =>
+    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const vista = (rows ?? []).filter(
+    (r) =>
+      (!buscando || norm(`${r.productName} ${r.sku}`).includes(norm(buscar.trim()))) &&
+      (!soloConStock || r.quantity > 0),
+  );
+  /** Por producto: dónde hay, para responderle al cliente de un vistazo. */
+  const porProducto = new Map<string, { nombre: string; sku: string; filas: InventoryRow[] }>();
+  if (buscando) {
+    for (const r of vista) {
+      const g = porProducto.get(r.productId) ?? { nombre: r.productName, sku: r.sku, filas: [] };
+      g.filas.push(r);
+      porProducto.set(r.productId, g);
+    }
+  }
   const canTransfer = rows?.some((r) => r.canAdjust) ?? false;
   // Cuántos están en o por debajo del mínimo. Es el dato por el que se abre esta
   // pantalla, así que va en el encabezado y no escondido entre las filas.
@@ -109,6 +137,87 @@ export function InventoryPage() {
         </Select>
       )}
 
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative min-w-[220px] flex-1 sm:max-w-md">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted" />
+          <Input
+            value={buscar}
+            onChange={(e) => setBuscar(e.target.value)}
+            placeholder="Buscar producto o SKU en todas las sucursales…"
+            aria-label="Buscar producto"
+            className="pl-9"
+          />
+        </div>
+        <label className="flex items-center gap-2 text-[13px]">
+          <input
+            type="checkbox"
+            checked={soloConStock}
+            onChange={(e) => setSoloConStock(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Solo con stock
+        </label>
+      </div>
+
+      {buscando && !isLoading && (
+        <div className="flex flex-col gap-3" aria-live="polite">
+          {porProducto.size === 0 && (
+            <p className="rounded-theme border border-dashed border-field p-6 text-center text-muted">
+              Ninguna sucursal tiene «{buscar.trim()}»{soloConStock ? ' con stock' : ''}.
+            </p>
+          )}
+          {[...porProducto.entries()].map(([id, g]) => {
+            const mia = g.filas.find((f) => f.locationId === user?.locationId);
+            const enOtras = g.filas.filter((f) => f.locationId !== user?.locationId && f.quantity > 0);
+            return (
+              <div key={id} className="rounded-theme border border-field bg-surface p-4 shadow-sm">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div>
+                    <span className="font-semibold">{g.nombre}</span>{' '}
+                    <span className="font-mono text-xs text-muted">{g.sku}</span>
+                  </div>
+                  {user?.locationId && (
+                    <span
+                      className={`rounded-full px-2.5 py-[3px] text-[11px] font-bold ${
+                        mia && mia.quantity > 0 ? 'bg-success-bg text-success' : 'bg-danger-bg text-danger'
+                      }`}
+                    >
+                      {mia && mia.quantity > 0
+                        ? `En tu sucursal: ${mia.quantity}`
+                        : enOtras.length > 0
+                          ? 'Sin stock aquí · hay en otra sucursal'
+                          : 'Sin stock en tu sucursal'}
+                    </span>
+                  )}
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {g.filas.map((f) => (
+                    <span
+                      key={f.id}
+                      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-[12px] font-semibold ${
+                        f.quantity > 0
+                          ? 'border-success/30 bg-success-bg text-success'
+                          : 'border-field bg-track text-muted'
+                      }`}
+                    >
+                      <MapPin size={12} />
+                      {f.locationName}
+                      {f.locationId === user?.locationId ? ' (la tuya)' : ''}: {f.quantity}
+                    </span>
+                  ))}
+                </div>
+                {mia && mia.quantity <= 0 && enOtras.length > 0 && (
+                  <p className="mt-3 text-[12px] text-muted">
+                    Dile al cliente que pase por {enOtras.map((f) => f.locationName).join(' o ')}, o
+                    pide una transferencia a la central.
+                  </p>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {isLoading && (
         <Card>
           <CardContent className="p-0">
@@ -117,7 +226,7 @@ export function InventoryPage() {
         </Card>
       )}
 
-      {!isLoading && rows?.length === 0 && (
+      {!isLoading && !buscando && vista.length === 0 && (
         <Card>
           <CardContent className="p-0">
             <EmptyState
@@ -129,7 +238,7 @@ export function InventoryPage() {
         </Card>
       )}
 
-      <Card className={rows?.length ? 'hidden md:block' : 'hidden'}>
+      <Card className={!buscando && vista.length ? 'hidden md:block' : 'hidden'}>
         <CardContent className="overflow-x-auto p-0">
           <table className="ds-table w-full">
             <thead className="border-b border-border text-left text-muted">
@@ -142,7 +251,7 @@ export function InventoryPage() {
               </tr>
             </thead>
             <tbody>
-              {rows?.map((r) => {
+              {vista.map((r) => {
                 // Negativo antes que bajo: los dos se pintan en rojo, pero el negativo
                 // lleva además el signo, que es lo que dice cuánto hay que ajustar.
                 const negativo = r.quantity < 0;
@@ -198,8 +307,8 @@ export function InventoryPage() {
       </Card>
 
       {/* Móvil: tarjetas apiladas; fila baja resaltada en rojo como en el prototipo. */}
-      <div className="flex flex-col gap-2.5 md:hidden">
-        {rows?.map((r) => {
+      <div className={`flex flex-col gap-2.5 md:hidden ${buscando ? 'hidden' : ''}`}>
+        {vista.map((r) => {
           const low = r.quantity < 0 || (r.minStock != null && r.quantity <= r.minStock);
           return (
             <div

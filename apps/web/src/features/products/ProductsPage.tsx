@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { History, Package, Pencil, Plus, RotateCcw, Search, Trash2, Archive } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ConfirmarModal } from '@/components/ConfirmarModal';
 import { Exportar } from '@/components/Exportar';
 import { FotoDeProducto, Miniatura } from '@/features/products/FotoDeProducto';
 import { ImportarProductos } from '@/features/products/ImportarProductos';
@@ -71,25 +72,39 @@ export function ProductsPage() {
     qc.invalidateQueries({ queryKey: ['inventory'] });
   };
 
-  /** Baja, reactivación o eliminación de un producto. Todas piden confirmación. */
-  async function gestionar(p: Product, que: 'baja' | 'reactivar' | 'eliminar') {
+  /** Baja, reactivación o eliminación de un producto: abre el modal de confirmación. */
+  const [pedido, setPedido] = useState<{
+    p: Product;
+    que: 'baja' | 'reactivar' | 'eliminar';
+    /** Por qué no se pudo eliminar, cuando se ofrece la baja como alternativa. */
+    motivo?: string;
+  } | null>(null);
+  const [gestionando, setGestionando] = useState(false);
+  const [errorGestion, setErrorGestion] = useState<string | null>(null);
+
+  function gestionar(p: Product, que: 'baja' | 'reactivar' | 'eliminar') {
     setAviso(null);
-    const pregunta = {
-      baja: `¿Dar de baja "${p.name}"? Deja de salir en ventas e inventario, pero conserva su historial. Se puede reactivar.`,
-      reactivar: `¿Reactivar "${p.name}"? Volverá a salir en ventas e inventario.`,
-      eliminar: `¿Eliminar "${p.name}" para siempre? Solo se puede si no tiene ventas ni stock.`,
-    }[que];
-    if (!window.confirm(pregunta)) return;
+    setErrorGestion(null);
+    setPedido({ p, que });
+  }
+
+  async function confirmarGestion() {
+    if (!pedido) return;
+    const { p, que } = pedido;
+    setGestionando(true);
+    setErrorGestion(null);
     try {
       if (que === 'eliminar') await api.del(`/products/${p.id}`);
       else await api.patch(`/products/${p.id}`, { isActive: que === 'reactivar' });
       reload();
+      setPedido(null);
     } catch (e) {
       const msg = e instanceof ApiError ? e.message : (e as Error).message;
-      setAviso(msg);
-      if (que === 'eliminar' && p.isActive && window.confirm(`${msg}\n\n¿Darlo de baja ahora?`)) {
-        await gestionar(p, 'baja').catch(() => undefined);
-      }
+      // No se pudo eliminar (tiene ventas o stock): se ofrece la baja en el mismo modal.
+      if (que === 'eliminar' && p.isActive) setPedido({ p, que: 'baja', motivo: msg });
+      else setErrorGestion(msg);
+    } finally {
+      setGestionando(false);
     }
   }
 
@@ -393,6 +408,46 @@ export function ProductsPage() {
           onClose={() => setHistory(null)}
         />
       )}
+          {pedido && (
+        <ConfirmarModal
+          titulo={
+            pedido.que === 'baja'
+              ? 'Dar de baja el producto'
+              : pedido.que === 'reactivar'
+                ? 'Reactivar el producto'
+                : 'Eliminar el producto'
+          }
+          tono={pedido.que === 'reactivar' ? 'normal' : 'peligro'}
+          confirmar={
+            pedido.que === 'baja' ? 'Dar de baja' : pedido.que === 'reactivar' ? 'Reactivar' : 'Eliminar'
+          }
+          pendiente={gestionando}
+          error={errorGestion}
+          mensaje={
+            <>
+              {pedido.motivo && <p className="mb-2 font-semibold">{pedido.motivo}</p>}
+              {pedido.que === 'baja' && (
+                <p>
+                  {pedido.motivo ? '¿Darlo de baja ahora? ' : ''}
+                  «{pedido.p.name}» deja de salir en ventas e inventario, pero conserva su
+                  historial. Se puede reactivar.
+                </p>
+              )}
+              {pedido.que === 'reactivar' && (
+                <p>«{pedido.p.name}» volverá a salir en ventas e inventario.</p>
+              )}
+              {pedido.que === 'eliminar' && (
+                <p>
+                  ¿Eliminar «{pedido.p.name}» para siempre? Solo se puede si no tiene ventas ni
+                  stock.
+                </p>
+              )}
+            </>
+          }
+          onConfirmar={() => void confirmarGestion()}
+          onCancelar={() => setPedido(null)}
+        />
+      )}
     </Page>
   );
 }
@@ -548,6 +603,7 @@ function ProductForm({
               setError(null);
               if (hayErrores) {
                 setError('Corrige los campos marcados en rojo.');
+                setTimeout(() => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(), 0);
                 return;
               }
               save.mutate();

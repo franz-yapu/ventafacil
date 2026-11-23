@@ -8,7 +8,7 @@ import { Input } from '@/components/ui/input';
 import { Campo } from '@/components/ui/field';
 import { useValidacion } from '@/lib/useValidacion';
 import { entero, importe, largo, requerido, todas } from '@/lib/validar';
-import { Modal } from '@/components/ui/modal';
+import { BannerSeccion, TarjetaTono, type Tono } from '@/features/platform/estilos';
 import { platformApi } from '@/lib/api';
 
 interface PlanFila {
@@ -32,30 +32,33 @@ const aCupo = (v: string): number | null => (v.trim() === '' ? null : Number(v))
  * negocios que contraten desde ahora; quien ya paga conserva su precio. Los cupos rigen
  * para todos.
  */
-export function PlanesModal({ onClose }: { onClose: () => void }) {
+export function PlanesModal(_: { onClose: () => void }) {
   const { data: planes, isLoading } = useQuery({
     queryKey: ['platform', 'plans'],
     queryFn: () => platformApi.get<PlanFila[]>('/platform/plans'),
   });
 
   return (
-    <Modal open inline onClose={onClose} title="Planes y precios">
-      <div className="flex flex-col gap-4">
-        <p className="text-[13px] text-muted">
-          Los cambios de precio y de oferta solo aplican a quien contrate desde ahora: los negocios
-          que ya pagan mantienen su precio. Los cupos sí rigen para todos.
-        </p>
-        {isLoading && <div className="text-muted">Cargando…</div>}
-        {planes?.map((p) => (
-          <PlanForm key={p.code} plan={p} />
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-4">
+      <BannerSeccion
+        tono="primary"
+        icon={Tag}
+        titulo="Planes y precios"
+        descripcion="Los cambios de precio y de oferta solo aplican a quien contrate desde ahora: los negocios que ya pagan mantienen su precio. Los cupos sí rigen para todos."
+      />
+      {isLoading && <div className="text-muted">Cargando…</div>}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {planes?.map((p, i) => (
+          <PlanForm key={p.code} plan={p} i={i} />
         ))}
-        <Button onClick={onClose}>Cerrar</Button>
       </div>
-    </Modal>
+    </div>
   );
 }
 
-function PlanForm({ plan }: { plan: PlanFila }) {
+const PLAN_TONO: Record<string, Tono> = { basico: 'info', pro: 'primary', ilimitado: 'success' };
+
+function PlanForm({ plan, i }: { plan: PlanFila; i: number }) {
   const qc = useQueryClient();
   const [precio, setPrecio] = useState(plan.priceMonthly);
   const [lista, setLista] = useState(plan.regularPrice ?? '');
@@ -107,8 +110,9 @@ function PlanForm({ plan }: { plan: PlanFila }) {
 
 
   return (
+    <TarjetaTono tono={PLAN_TONO[plan.code] ?? 'warning'} i={i + 1}>
     <form
-      className="rounded-theme border border-border p-4"
+      className="p-4"
       onSubmit={(e) => {
         e.preventDefault();
         setGuardado(false);
@@ -190,5 +194,6 @@ function PlanForm({ plan }: { plan: PlanFila }) {
         </Button>
       </div>
     </form>
+    </TarjetaTono>
   );
 }

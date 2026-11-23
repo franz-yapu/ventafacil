@@ -20,7 +20,15 @@ export function useValidacion<T extends string>(reglas: Reglas<T>, valores: Reco
     /** Llamar al pulsar Guardar: marca todos los campos y devuelve `true` si todo está bien. */
     intentar: (): boolean => {
       setIntentado(true);
-      return Object.keys(errores).length === 0;
+      const bien = Object.keys(errores).length === 0;
+      // El foco va al primer campo inválido, para quien navega con teclado o lector de
+      // pantalla. Se espera al render que pinta `aria-invalid`.
+      if (!bien && typeof document !== 'undefined') {
+        setTimeout(() => {
+          document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus();
+        }, 0);
+      }
+      return bien;
     },
     reiniciar: () => {
       setTocados(new Set());

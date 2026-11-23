@@ -485,3 +485,14 @@ body {
     transform: rotate(-8deg);
   }
 }
+
+/* WCAG 2.2 (2.5.8): objetivos táctiles de al menos 24×24 px. */
+@layer base {
+  button,
+  [role='button'],
+  [role='tab'],
+  select {
+    min-height: 24px;
+    min-width: 24px;
+  }
+}
