@@ -130,7 +130,8 @@ export function SettingsPage() {
       name: todas(requerido('El nombre del negocio'), largo(1, LIMITES.nombreMax)),
       appName: largo(0, LIMITES.nombreMax),
       receiptFooter: largo(0, LIMITES.notaMax),
-      currency: (x) => (/^[A-Za-z]{2,5}$/.test(x.trim()) ? null : 'Usa el código de la moneda (ej. BOB)'),
+      currency: (x) =>
+        /^[A-Za-z]{2,5}$/.test(x.trim()) ? null : 'Usa el código de la moneda (ej. BOB)',
       discount: (x) => {
         const n = Number(x);
         return x.trim() === '' || !Number.isFinite(n) || n < 0 || n > 100 || !Number.isInteger(n)
@@ -206,7 +207,11 @@ export function SettingsPage() {
               onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
           </Campo>
-          <Campo etiqueta="Nombre de la app (en recibos y cabecera)" opcional error={v.ver('appName')}>
+          <Campo
+            etiqueta="Nombre de la app (en recibos y cabecera)"
+            opcional
+            error={v.ver('appName')}
+          >
             <Input
               value={form.appName}
               onBlur={() => v.tocar('appName')}

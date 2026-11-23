@@ -103,7 +103,11 @@ export function PlatformLoginPage() {
                 setFaltan((f) => ({ ...f, e: undefined }));
               }}
             />
-            {faltan.e && <p role="alert" className="mt-1 text-xs text-danger">{faltan.e}</p>}
+            {faltan.e && (
+              <p role="alert" className="mt-1 text-xs text-danger">
+                {faltan.e}
+              </p>
+            )}
           </div>
 
           <div>
@@ -122,7 +126,11 @@ export function PlatformLoginPage() {
                 setFaltan((f) => ({ ...f, p: undefined }));
               }}
             />
-            {faltan.p && <p role="alert" className="mt-1 text-xs text-danger">{faltan.p}</p>}
+            {faltan.p && (
+              <p role="alert" className="mt-1 text-xs text-danger">
+                {faltan.p}
+              </p>
+            )}
           </div>
 
           {error && (

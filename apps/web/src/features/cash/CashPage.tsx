@@ -389,8 +389,7 @@ function ModalCerrar({
             placeholder="0.00"
           />
         </Campo>
-        <div>
-        </div>
+        <div></div>
 
         {diferencia !== null && (
           <div
@@ -449,7 +448,11 @@ function ModalMovimiento({ onClose, onOk }: { onClose: () => void; onOk: () => v
   const v = useValidacion(
     {
       monto: todas(requerido('El monto'), importe({ max: 999999.99, permiteCero: false })),
-      motivo: todas(requerido('El motivo'), (x) => (x.trim().length < 3 ? 'Mínimo 3 caracteres' : null), largo(3, 200)),
+      motivo: todas(
+        requerido('El motivo'),
+        (x) => (x.trim().length < 3 ? 'Mínimo 3 caracteres' : null),
+        largo(3, 200),
+      ),
     },
     { monto, motivo },
   );

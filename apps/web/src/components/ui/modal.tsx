@@ -100,7 +100,10 @@ export function Modal({ open, onClose, title, children, className, footer, inlin
   if (!open) return null;
   if (inline) {
     return (
-      <section aria-label={title} className="mx-auto w-full max-w-3xl rounded-theme border border-border bg-surface">
+      <section
+        aria-label={title}
+        className="mx-auto w-full max-w-3xl rounded-theme border border-border bg-surface"
+      >
         <h2 className="border-b border-border px-5 py-3.5 text-[17px] font-bold">{title}</h2>
         <div className="p-5">{children}</div>
       </section>

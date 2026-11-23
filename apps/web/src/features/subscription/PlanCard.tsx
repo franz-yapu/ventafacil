@@ -87,7 +87,7 @@ export function PlanCard({
           <div className="text-[13px] text-muted">
             Precio de lista{' '}
             <s className="tabular-nums" aria-label={`antes ${plan.regularPrice}`}>
-              {plan.currency} {importe(plan.regularPrice ?? "0", periodo)}
+              {plan.currency} {importe(plan.regularPrice ?? '0', periodo)}
             </s>
           </div>
         )}

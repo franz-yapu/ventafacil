@@ -38,7 +38,11 @@ export function Campo({
         'aria-invalid': error ? true : undefined,
       })}
       {(error || ayuda) && (
-        <span id={notaId} role={error ? 'alert' : undefined} className={cn('text-xs', error ? 'text-danger' : 'text-muted')}>
+        <span
+          id={notaId}
+          role={error ? 'alert' : undefined}
+          className={cn('text-xs', error ? 'text-danger' : 'text-muted')}
+        >
           {error || ayuda}
         </span>
       )}

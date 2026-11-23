@@ -1,7 +1,13 @@
 import { Campo } from '@/components/ui/field';
 import { useValidacion } from '@/lib/useValidacion';
 import { correo, largo, requerido, todas, usuario } from '@/lib/validar';
-import { MENSAJE_SLUG, notaDominio, slugDesdeNombre, TRIAL_DAYS, validarSlug } from '@ventafacil/shared';
+import {
+  MENSAJE_SLUG,
+  notaDominio,
+  slugDesdeNombre,
+  TRIAL_DAYS,
+  validarSlug,
+} from '@ventafacil/shared';
 import { Check, Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -165,7 +171,13 @@ export function RegisterPage() {
       email: todas(requerido('El correo'), correo),
       username: todas(requerido('El usuario'), usuario),
       password: (x) =>
-        x === '' ? 'La contraseña es obligatoria' : x.length < 8 ? 'Mínimo 8 caracteres' : x.length > 100 ? 'Máximo 100 caracteres' : null,
+        x === ''
+          ? 'La contraseña es obligatoria'
+          : x.length < 8
+            ? 'Mínimo 8 caracteres'
+            : x.length > 100
+              ? 'Máximo 100 caracteres'
+              : null,
     },
     { businessName, adminName, email, username, password },
   );
@@ -194,14 +206,14 @@ export function RegisterPage() {
           Tu negocio
         </div>
         <Campo etiqueta="Nombre del negocio" error={v.ver('businessName')}>
-            <Input
-              onBlur={() => v.tocar('businessName')}
-              id="rg-negocio"
-              autoFocus
-              value={businessName}
-              onChange={(e) => setBusinessName(e.target.value)}
-              placeholder="Llantas El Rápido"
-            />
+          <Input
+            onBlur={() => v.tocar('businessName')}
+            id="rg-negocio"
+            autoFocus
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="Llantas El Rápido"
+          />
         </Campo>
 
         <div>
@@ -261,39 +273,43 @@ export function RegisterPage() {
         </div>
 
         <Campo etiqueta="Tu nombre" error={v.ver('adminName')}>
-            <Input
-              onBlur={() => v.tocar('adminName')}
-              id="rg-nombre"
-              value={adminName}
-              onChange={(e) => setAdminName(e.target.value)}
-              placeholder="Ana Quispe"
-            />
+          <Input
+            onBlur={() => v.tocar('adminName')}
+            id="rg-nombre"
+            value={adminName}
+            onChange={(e) => setAdminName(e.target.value)}
+            placeholder="Ana Quispe"
+          />
         </Campo>
 
-        <Campo etiqueta="Tu correo" ayuda="Es lo único que te permitirá recuperar la contraseña." error={v.ver('email')}>
-            <Input
-              onBlur={() => v.tocar('email')}
-              id="rg-email"
-              type="email"
-              autoCapitalize="none"
-              autoCorrect="off"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="ana@minegocio.com"
-            />
+        <Campo
+          etiqueta="Tu correo"
+          ayuda="Es lo único que te permitirá recuperar la contraseña."
+          error={v.ver('email')}
+        >
+          <Input
+            onBlur={() => v.tocar('email')}
+            id="rg-email"
+            type="email"
+            autoCapitalize="none"
+            autoCorrect="off"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="ana@minegocio.com"
+          />
         </Campo>
 
         <Campo etiqueta="Usuario para entrar" error={v.ver('username')}>
-            <Input
-              onBlur={() => v.tocar('username')}
-              id="rg-usuario"
-              autoCapitalize="none"
-              autoCorrect="off"
-              spellCheck={false}
-              value={username}
-              onChange={(e) => setUsername(e.target.value.toLowerCase())}
-              placeholder="ana"
-            />
+          <Input
+            onBlur={() => v.tocar('username')}
+            id="rg-usuario"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={username}
+            onChange={(e) => setUsername(e.target.value.toLowerCase())}
+            placeholder="ana"
+          />
         </Campo>
 
         <div>

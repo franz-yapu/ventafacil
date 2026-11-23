@@ -13,7 +13,9 @@ describe('periodoPagado', () => {
   });
 
   it('al día hasta 16 días; por vencer desde 15', () => {
-    expect(periodoPagado({ status: 'active', currentPeriodEnd: fin(AVISO_DIAS + 1) }, ahora)!.fase).toBe('al_dia');
+    expect(
+      periodoPagado({ status: 'active', currentPeriodEnd: fin(AVISO_DIAS + 1) }, ahora)!.fase,
+    ).toBe('al_dia');
     const p = periodoPagado({ status: 'active', currentPeriodEnd: fin(AVISO_DIAS) }, ahora)!;
     expect(p.fase).toBe('por_vencer');
     expect(p.diasRestantes).toBe(15);
@@ -21,7 +23,10 @@ describe('periodoPagado', () => {
   });
 
   it('el último día sigue "por vencer" y puede escribir', () => {
-    const p = periodoPagado({ status: 'active', currentPeriodEnd: new Date(ahora.getTime() + 3_600_000) }, ahora)!;
+    const p = periodoPagado(
+      { status: 'active', currentPeriodEnd: new Date(ahora.getTime() + 3_600_000) },
+      ahora,
+    )!;
     expect(p.fase).toBe('por_vencer');
     expect(p.diasRestantes).toBe(1);
   });
@@ -33,7 +38,10 @@ describe('periodoPagado', () => {
     expect(g.graciaRestante).toBe(GRACIA_DIAS - 1);
     expect(g.puedeEscribir).toBe(true);
 
-    const ultimo = periodoPagado({ status: 'active', currentPeriodEnd: fin(-(GRACIA_DIAS - 0.5)) }, ahora)!;
+    const ultimo = periodoPagado(
+      { status: 'active', currentPeriodEnd: fin(-(GRACIA_DIAS - 0.5)) },
+      ahora,
+    )!;
     expect(ultimo.fase).toBe('gracia');
 
     const l = periodoPagado({ status: 'active', currentPeriodEnd: fin(-GRACIA_DIAS) }, ahora)!;

@@ -23,7 +23,12 @@ import { TZ } from './zona.js';
  */
 
 const fecha = (d: Date) =>
-  new Intl.DateTimeFormat('es-BO', { timeZone: TZ, day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+  new Intl.DateTimeFormat('es-BO', {
+    timeZone: TZ,
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(d);
 
 export interface ResultadoAvisos {
   revisados: number;
@@ -61,7 +66,12 @@ export async function enviarAvisosDeVencimiento(
   for (const p of pendientes) {
     const fin = p.fin!;
     const dias = Math.ceil((fin.getTime() - ahora.getTime()) / 86_400_000);
-    const venc = dias < 0 ? `venció hace ${-dias} ${-dias === 1 ? 'día' : 'días'}` : dias === 0 ? 'vence hoy' : `vence en ${dias} ${dias === 1 ? 'día' : 'días'}`;
+    const venc =
+      dias < 0
+        ? `venció hace ${-dias} ${-dias === 1 ? 'día' : 'días'}`
+        : dias === 0
+          ? 'vence hoy'
+          : `vence en ${dias} ${dias === 1 ? 'día' : 'días'}`;
 
     // Los administradores de ESE negocio: sus filas están bajo RLS, de ahí `withTenant`.
     const admins = await withTenant(p.businessId, (tx) =>
@@ -97,7 +107,9 @@ export async function enviarAvisosDeVencimiento(
       if (r.enviado) enviados++;
     }
 
-    resumen.push(`- ${p.negocio} (${p.slug ?? 'sin subdominio'}) · plan ${p.plan} · ${venc} · ${fecha(fin)} · correos a dueños: ${enviados}/${admins.length}`);
+    resumen.push(
+      `- ${p.negocio} (${p.slug ?? 'sin subdominio'}) · plan ${p.plan} · ${venc} · ${fecha(fin)} · correos a dueños: ${enviados}/${admins.length}`,
+    );
 
     // Se marca si llegó a alguien o si no hay a quién escribirle (el resumen para ti
     // sale igual). Si había destinatarios y TODOS fallaron, se deja sin marcar: la

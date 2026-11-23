@@ -20,7 +20,14 @@ export function ResetPasswordPage() {
 
   const [errs, setErrs] = useState<{ p?: string; r?: string }>({});
   const validarCampos = (p: string, r: string) => ({
-    p: p === '' ? 'Escribe la contraseña nueva' : p.length < 8 ? 'Mínimo 8 caracteres' : p.length > 100 ? 'Máximo 100 caracteres' : undefined,
+    p:
+      p === ''
+        ? 'Escribe la contraseña nueva'
+        : p.length < 8
+          ? 'Mínimo 8 caracteres'
+          : p.length > 100
+            ? 'Máximo 100 caracteres'
+            : undefined,
     r: r === '' ? 'Repite la contraseña' : r !== p ? 'Las contraseñas no coinciden' : undefined,
   });
 
@@ -101,7 +108,11 @@ export function ResetPasswordPage() {
               {ver ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          {errs.p && <p role="alert" className="mt-1 text-xs text-danger">{errs.p}</p>}
+          {errs.p && (
+            <p role="alert" className="mt-1 text-xs text-danger">
+              {errs.p}
+            </p>
+          )}
         </div>
 
         <div>
@@ -118,7 +129,11 @@ export function ResetPasswordPage() {
             onChange={(e) => setRepetir(e.target.value)}
             placeholder="La misma otra vez"
           />
-          {errs.r && <p role="alert" className="mt-1 text-xs text-danger">{errs.r}</p>}
+          {errs.r && (
+            <p role="alert" className="mt-1 text-xs text-danger">
+              {errs.r}
+            </p>
+          )}
         </div>
 
         {error && (

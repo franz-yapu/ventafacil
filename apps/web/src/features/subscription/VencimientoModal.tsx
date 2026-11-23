@@ -79,7 +79,10 @@ export function VencimientoModal() {
       <div className="flex flex-col gap-3 text-[14px]">
         <p>
           Tu plan <strong>{sub.plan?.name}</strong> venció el <strong>{fin}</strong>
-          {per.diasVencido > 0 ? ` (hace ${per.diasVencido} ${per.diasVencido === 1 ? 'día' : 'días'})` : ''}.
+          {per.diasVencido > 0
+            ? ` (hace ${per.diasVencido} ${per.diasVencido === 1 ? 'día' : 'días'})`
+            : ''}
+          .
         </p>
         {soloLectura ? (
           <p className="rounded-theme bg-danger-bg p-3 text-danger">
@@ -88,8 +91,11 @@ export function VencimientoModal() {
           </p>
         ) : (
           <p className="rounded-theme bg-warning-bg p-3 text-warning">
-            Te quedan <strong>{per.graciaRestante} {per.graciaRestante === 1 ? 'día' : 'días'}</strong> de
-            gracia. Después la cuenta pasa a solo lectura y no podrás vender ni editar.
+            Te quedan{' '}
+            <strong>
+              {per.graciaRestante} {per.graciaRestante === 1 ? 'día' : 'días'}
+            </strong>{' '}
+            de gracia. Después la cuenta pasa a solo lectura y no podrás vender ni editar.
           </p>
         )}
         <p className="text-muted">Renueva ahora para no interrumpir tu negocio.</p>

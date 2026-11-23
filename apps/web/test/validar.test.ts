@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { clave, correo, entero, importe, largo, requerido, telefono, todas, usuario, validar } from '@/lib/validar';
+import {
+  clave,
+  correo,
+  entero,
+  importe,
+  largo,
+  requerido,
+  telefono,
+  todas,
+  usuario,
+  validar,
+} from '@/lib/validar';
 
 describe('reglas de validación por campo', () => {
   it('el importe no acepta negativos, letras ni más de 2 decimales', () => {
@@ -41,10 +52,7 @@ describe('reglas de validación por campo', () => {
   });
 
   it('validar devuelve solo los campos con error', () => {
-    const e = validar(
-      { a: requerido('A'), b: importe() },
-      { a: '', b: '10' },
-    );
+    const e = validar({ a: requerido('A'), b: importe() }, { a: '', b: '10' });
     expect(Object.keys(e)).toEqual(['a']);
   });
 });

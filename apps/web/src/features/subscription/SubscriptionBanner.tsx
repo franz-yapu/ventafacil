@@ -10,7 +10,12 @@ import { useSubscription } from '@/features/subscription/SubscriptionProvider';
  */
 /** 14 de febrero de 2027 */
 export function fechaCorta(iso: string): string {
-  return new Intl.DateTimeFormat('es-BO', { timeZone: 'America/La_Paz', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso));
+  return new Intl.DateTimeFormat('es-BO', {
+    timeZone: 'America/La_Paz',
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(iso));
 }
 
 export function SubscriptionBanner() {

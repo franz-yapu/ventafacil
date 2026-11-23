@@ -89,7 +89,6 @@ export function AuthShell({
         {pie && <div className="mt-5 text-center text-[13px] text-muted">{pie}</div>}
 
         {legal && <PieLegal />}
-
       </div>
     </AuthLayout>
   );

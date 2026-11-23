@@ -140,7 +140,8 @@ describe('detrás de proxies (TRUST_PROXY)', () => {
     await app.ready();
     try {
       let ultimo = 0;
-      for (let i = 0; i < 8; i++) ultimo = (await intentar(app, '203.0.113.7, 10.0.1.2')).statusCode;
+      for (let i = 0; i < 8; i++)
+        ultimo = (await intentar(app, '203.0.113.7, 10.0.1.2')).statusCode;
       expect(ultimo, 'el primer cliente debería estar bloqueado').toBe(429);
 
       const otro = await intentar(app, '198.51.100.20, 10.0.1.2');

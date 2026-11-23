@@ -168,7 +168,11 @@ export function LoginPage() {
               setFaltan((f) => ({ ...f, u: undefined }));
             }}
           />
-          {faltan.u && <p role="alert" className="mt-1 text-xs text-danger">{faltan.u}</p>}
+          {faltan.u && (
+            <p role="alert" className="mt-1 text-xs text-danger">
+              {faltan.u}
+            </p>
+          )}
 
           <div className="mb-[7px] mt-4 flex items-baseline justify-between">
             <label htmlFor="clave" className="text-[13px] font-semibold">
@@ -211,7 +215,11 @@ export function LoginPage() {
               {showPassword ? 'Ocultar' : 'Ver'}
             </button>
           </div>
-          {faltan.p && <p role="alert" className="mt-1 text-xs text-danger">{faltan.p}</p>}
+          {faltan.p && (
+            <p role="alert" className="mt-1 text-xs text-danger">
+              {faltan.p}
+            </p>
+          )}
 
           {needsBusiness && (
             <div className="mt-4">
@@ -232,7 +240,11 @@ export function LoginPage() {
                   setFaltan((f) => ({ ...f, b: undefined }));
                 }}
               />
-              {faltan.b && <p role="alert" className="mt-1 text-xs text-danger">{faltan.b}</p>}
+              {faltan.b && (
+                <p role="alert" className="mt-1 text-xs text-danger">
+                  {faltan.b}
+                </p>
+              )}
               <p className="mt-1 text-[12px] text-muted">
                 Esta instalación atiende a varios negocios. Escribe el código del tuyo.
               </p>

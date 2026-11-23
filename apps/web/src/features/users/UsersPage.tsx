@@ -284,7 +284,11 @@ function UserForm({
     >
       <div className="flex flex-col gap-6">
         <Seccion titulo="Quién es">
-          <Campo etiqueta="Nombre completo" ayuda="Así lo verás en ventas y reportes." error={v.ver('name')}>
+          <Campo
+            etiqueta="Nombre completo"
+            ayuda="Así lo verás en ventas y reportes."
+            error={v.ver('name')}
+          >
             <Input
               onBlur={() => v.tocar('name')}
               value={form.name}
@@ -364,7 +368,9 @@ function UserForm({
               value={form.locationId ?? ''}
               onChange={(e) => setForm({ ...form, locationId: e.target.value })}
             >
-              <option value="">{form.role === 'seller' ? 'Elige una sucursal' : 'Sin asignar'}</option>
+              <option value="">
+                {form.role === 'seller' ? 'Elige una sucursal' : 'Sin asignar'}
+              </option>
               {locations.map((l) => (
                 <option key={l.id} value={l.id}>
                   {l.name}

@@ -111,7 +111,11 @@ export function SubscriptionPage() {
         <>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold">Planes disponibles</h2>
-            <div role="group" aria-label="Periodo de pago" className="inline-flex rounded-full bg-fg/[0.07] p-1">
+            <div
+              role="group"
+              aria-label="Periodo de pago"
+              className="inline-flex rounded-full bg-fg/[0.07] p-1"
+            >
               {(['anual', 'mensual'] as Periodo[]).map((per) => (
                 <button
                   key={per}

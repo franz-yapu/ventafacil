@@ -12,7 +12,9 @@ import { join } from 'node:path';
  * el borrado no ocurre. Las tablas se descubren en el catálogo, así una tabla nueva con
  * `business_id` entra sola en la copia sin acordarse de tocar esto.
  */
-export async function respaldarNegocio(businessId: string): Promise<{ archivo: string; filas: number }> {
+export async function respaldarNegocio(
+  businessId: string,
+): Promise<{ archivo: string; filas: number }> {
   const tablasRes = await db.execute(sql`
     select table_name from information_schema.columns
     where table_schema = 'public' and column_name = 'business_id'
@@ -50,7 +52,13 @@ export async function respaldarNegocio(businessId: string): Promise<{ archivo: s
   const archivo = join(dir, `${slug}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
   await writeFile(
     archivo,
-    JSON.stringify({ version: 1, creado: new Date().toISOString(), business: biz?.j ?? null, subscription: sus?.j ?? null, tablas: datos }),
+    JSON.stringify({
+      version: 1,
+      creado: new Date().toISOString(),
+      business: biz?.j ?? null,
+      subscription: sus?.j ?? null,
+      tablas: datos,
+    }),
     { mode: 0o600 },
   );
   return { archivo, filas };

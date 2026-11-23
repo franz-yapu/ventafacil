@@ -80,7 +80,8 @@ export function ProfilePage() {
     {
       name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
       email: correo,
-      currentPassword: (x) => (wantsPasswordChange && x === '' ? 'Ingresa tu contraseña actual' : null),
+      currentPassword: (x) =>
+        wantsPasswordChange && x === '' ? 'Ingresa tu contraseña actual' : null,
       newPassword: (x) =>
         wantsPasswordChange ? (x === '' ? 'Escribe la nueva contraseña' : clave(x)) : null,
       confirmPassword: (x) =>

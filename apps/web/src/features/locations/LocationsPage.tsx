@@ -30,11 +30,15 @@ export function LocationsPage() {
 
   const [errorCrear, setErrorCrear] = useState<string | null>(null);
   const v = useValidacion(
-    { name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)), address: largo(0, LIMITES.direccionMax) },
+    {
+      name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      address: largo(0, LIMITES.direccionMax),
+    },
     { name, address },
   );
   const create = useMutation({
-    mutationFn: () => api.post('/locations', { name: name.trim(), address: address.trim() || undefined }),
+    mutationFn: () =>
+      api.post('/locations', { name: name.trim(), address: address.trim() || undefined }),
     onError: (e) => setErrorCrear(e instanceof ApiError ? e.message : 'No se pudo guardar'),
     onSuccess: () => {
       v.reiniciar();
@@ -207,10 +211,18 @@ export function LocationsPage() {
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva ubicación">
         <div className="flex flex-col gap-3">
           <Campo etiqueta="Nombre" error={v.ver('name')}>
-            <Input value={name} onBlur={() => v.tocar('name')} onChange={(e) => setName(e.target.value)} />
+            <Input
+              value={name}
+              onBlur={() => v.tocar('name')}
+              onChange={(e) => setName(e.target.value)}
+            />
           </Campo>
           <Campo etiqueta="Dirección" opcional error={v.ver('address')}>
-            <Input value={address} onBlur={() => v.tocar('address')} onChange={(e) => setAddress(e.target.value)} />
+            <Input
+              value={address}
+              onBlur={() => v.tocar('address')}
+              onChange={(e) => setAddress(e.target.value)}
+            />
           </Campo>
           {errorCrear && <p className="text-sm text-danger">{errorCrear}</p>}
           <Button

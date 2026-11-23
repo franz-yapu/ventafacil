@@ -60,7 +60,10 @@ describe('modal insistente de plan vencido', () => {
   });
 
   it('en gracia sale, no se puede cerrar al instante y vuelve a salir a los 10 minutos', () => {
-    sub = { ...base, periodo: periodo('gracia', { diasVencido: 2, graciaRestante: 5, diasRestantes: -2 }) };
+    sub = {
+      ...base,
+      periodo: periodo('gracia', { diasVencido: 2, graciaRestante: 5, diasRestantes: -2 }),
+    };
     en(<VencimientoModal />);
     expect(screen.getByRole('dialog')).toBeTruthy();
     expect(screen.getByText(/5 días/)).toBeTruthy();

@@ -63,15 +63,15 @@ dos cajas venden la última unidad a la vez) y contando por producto, no por lí
 
 Están razonadas en los commits y en el código; aquí sólo el registro de qué se decidió.
 
-| Decisión | Qué implicó |
-|---|---|
-| Una sucursal ve **su surtido** | `/products` filtra por fila de inventario para quien no es central. Ventas y Actividad ya filtraban; Inventario se sigue viendo entero |
-| **Rechazar** vender sin existencias | 409 con el nombre del producto y cuánto queda |
-| **Deshabilitar** en el POS lo que no hay | Revierte una decisión anterior que ya no se sostenía — ver abajo |
-| Anular **pregunta si se devolvió** el efectivo | El servidor registra el retiro; la casilla va sin marcar a propósito |
-| La tarjeta **sin foto se compacta** | Revierte la banda todo-o-nada; con ella desapareció el fallo de la rejilla que se movía |
-| El **SKU no se escribe** | Sólo lectura al crear y al editar; el CSV sigue aceptándolo |
-| Aviso de **términos** al cambiar | Sólo por cambios materiales, sólo al admin de la central |
+| Decisión                                       | Qué implicó                                                                                                                            |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------- |
+| Una sucursal ve **su surtido**                 | `/products` filtra por fila de inventario para quien no es central. Ventas y Actividad ya filtraban; Inventario se sigue viendo entero |
+| **Rechazar** vender sin existencias            | 409 con el nombre del producto y cuánto queda                                                                                          |
+| **Deshabilitar** en el POS lo que no hay       | Revierte una decisión anterior que ya no se sostenía — ver abajo                                                                       |
+| Anular **pregunta si se devolvió** el efectivo | El servidor registra el retiro; la casilla va sin marcar a propósito                                                                   |
+| La tarjeta **sin foto se compacta**            | Revierte la banda todo-o-nada; con ella desapareció el fallo de la rejilla que se movía                                                |
+| El **SKU no se escribe**                       | Sólo lectura al crear y al editar; el CSV sigue aceptándolo                                                                            |
+| Aviso de **términos** al cambiar               | Sólo por cambios materiales, sólo al admin de la central                                                                               |
 
 ## Dos comentarios que dejaron de ser ciertos el mismo día
 

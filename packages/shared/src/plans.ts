@@ -383,7 +383,8 @@ export function periodoPagado(
   now: Date = new Date(),
 ): PeriodoPagado | null {
   if (sub.status !== 'active' || !sub.currentPeriodEnd) return null;
-  const fin = sub.currentPeriodEnd instanceof Date ? sub.currentPeriodEnd : new Date(sub.currentPeriodEnd);
+  const fin =
+    sub.currentPeriodEnd instanceof Date ? sub.currentPeriodEnd : new Date(sub.currentPeriodEnd);
   const ms = fin.getTime() - now.getTime();
   const diasRestantes = Math.ceil(ms / 86_400_000);
   if (ms >= 0) {

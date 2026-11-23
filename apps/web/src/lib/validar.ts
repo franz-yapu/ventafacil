@@ -49,7 +49,8 @@ export const entero =
     if (t === '') return null;
     if (t.startsWith('-')) return 'No puede ser negativo';
     if (!/^\d+$/.test(t)) return 'Solo números enteros, sin decimales';
-    if (Number(t) > (opts.max ?? LIMITES.cantidadMax)) return `No puede pasar de ${opts.max ?? LIMITES.cantidadMax}`;
+    if (Number(t) > (opts.max ?? LIMITES.cantidadMax))
+      return `No puede pasar de ${opts.max ?? LIMITES.cantidadMax}`;
     return null;
   };
 
@@ -57,7 +58,9 @@ export const correo: Regla = (v) => {
   const t = v.trim();
   if (t === '') return null;
   if (t.length > LIMITES.correoMax) return `Máximo ${LIMITES.correoMax} caracteres`;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t) ? null : 'Escribe un correo válido (ej. nombre@correo.com)';
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(t)
+    ? null
+    : 'Escribe un correo válido (ej. nombre@correo.com)';
 };
 
 /** Teléfono: dígitos, espacios, +, guiones y paréntesis; 7 a 15 dígitos. */

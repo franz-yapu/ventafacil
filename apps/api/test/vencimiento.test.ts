@@ -107,7 +107,11 @@ describe('modo según el vencimiento', () => {
 
   it('en sólo lectura puede salir y ver su estado de suscripción', async () => {
     await plan(-8);
-    const me = await app.inject({ method: 'GET', url: '/api/v1/subscription/me', headers: auth(t.adminToken) });
+    const me = await app.inject({
+      method: 'GET',
+      url: '/api/v1/subscription/me',
+      headers: auth(t.adminToken),
+    });
     expect(me.statusCode).toBe(200);
     expect(me.json().data.periodo.fase).toBe('solo_lectura');
     const sync = await app.inject({
@@ -132,9 +136,13 @@ describe('aviso por correo', () => {
     await plan(12);
     const r1 = await enviarAvisosDeVencimiento(log);
     expect(r1.avisados).toBe(1);
-    expect(enviados.some((c) => c.to === 'dueno@venc.test' && /vence en 12 días/.test(c.subject))).toBe(true);
     expect(
-      enviados.some((c) => c.to === 'operador@venc.test' && /pronto/.test(c.subject) && /venc-a/.test(c.text)),
+      enviados.some((c) => c.to === 'dueno@venc.test' && /vence en 12 días/.test(c.subject)),
+    ).toBe(true);
+    expect(
+      enviados.some(
+        (c) => c.to === 'operador@venc.test' && /pronto/.test(c.subject) && /venc-a/.test(c.text),
+      ),
     ).toBe(true);
 
     enviados.length = 0;
