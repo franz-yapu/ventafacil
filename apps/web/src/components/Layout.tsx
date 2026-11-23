@@ -25,6 +25,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { EmailVerifyBanner } from '@/features/auth/EmailVerifyBanner';
 import { AvisoDeTerminos } from '@/features/legal/AvisoDeTerminos';
 import { SubscriptionBanner } from '@/features/subscription/SubscriptionBanner';
+import { VencimientoModal } from '@/features/subscription/VencimientoModal';
 import { useSubscription } from '@/features/subscription/SubscriptionProvider';
 import { BotonAyuda } from '@/features/tour/BotonAyuda';
 import { TourProvider } from '@/features/tour/TourProvider';
@@ -269,6 +270,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           <AvisoDeError />
           <SubscriptionBanner />
+          <VencimientoModal />
           <EmailVerifyBanner />
           {/* El último de los tres a propósito: el de la suscripción y el del correo piden
             algo que hay que hacer para no quedarse fuera; éste sólo pide leer. */}

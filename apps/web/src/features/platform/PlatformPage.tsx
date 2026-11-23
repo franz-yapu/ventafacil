@@ -1,5 +1,5 @@
 import { importe } from '@/features/subscription/PlanCard';
-import type { EffectiveStatus, SubscriptionStatus } from '@ventafacil/shared';
+import type { EffectiveStatus, PeriodoPagado, SubscriptionStatus } from '@ventafacil/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, KeyRound, LogOut, Search, ShieldCheck, Tag, UserCog, Users } from 'lucide-react';
 import { useState } from 'react';
@@ -41,6 +41,11 @@ interface TenantRow {
   trialEndsAt: string | null;
   suspendedReason: string | null;
   vence: Vence | null;
+  currentPeriodEnd: string | null;
+  cycleStartedAt: string | null;
+  billingMonths: number;
+  billedAmount: string | null;
+  periodo: PeriodoPagado | null;
 }
 
 interface TenantDetail {
@@ -50,9 +55,14 @@ interface TenantDetail {
     status: EffectiveStatus;
     trialEndsAt: string | null;
     suspendedReason: string | null;
+    currentPeriodEnd: string | null;
+    cycleStartedAt: string | null;
+    billingMonths: number;
+    billedAmount: string | null;
   } | null;
   blocked: boolean;
   vence: Vence | null;
+  periodo: PeriodoPagado | null;
   usage: {
     users: number;
     locations: number;
@@ -81,6 +91,9 @@ interface Metrics {
   bajasDelMes: number;
   totalNegocios: number;
   conSuscripcion: number;
+  porVencer: number;
+  enGracia: number;
+  soloLectura: number;
 }
 
 const ESTADO: Record<string, { label: string; tone: BadgeTone }> = {
@@ -116,6 +129,25 @@ function cuentaAtras(v: Vence | null): { texto: string; tone: BadgeTone } | null
     texto: `${que}: ${v.dias} ${v.dias === 1 ? 'día' : 'días'}`,
     tone: v.dias <= 7 ? 'warning' : 'neutral',
   };
+}
+
+const fecha = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString('es-BO', { day: 'numeric', month: 'short', year: 'numeric' })
+    : '—';
+
+/** Estado del plan pagado: "Vence en 12 días", "Venció hace 3 días (gracia)", "Solo lectura". */
+function PeriodoBadge({ periodo }: { periodo: PeriodoPagado | null }) {
+  if (!periodo || periodo.fase === 'al_dia') return null;
+  if (periodo.fase === 'solo_lectura') return <Badge tone="danger">Solo lectura</Badge>;
+  if (periodo.fase === 'gracia') {
+    return <Badge tone="danger">Venció hace {periodo.diasVencido} d · gracia</Badge>;
+  }
+  return (
+    <Badge tone={periodo.diasRestantes <= 3 ? 'danger' : 'warning'}>
+      {periodo.diasRestantes <= 0 ? 'Vence hoy' : `Vence en ${periodo.diasRestantes} d`}
+    </Badge>
+  );
 }
 
 function VenceBadge({ vence }: { vence: Vence | null }) {
@@ -161,6 +193,7 @@ export function PlatformPage() {
   const { admin, logout } = usePlatformAuth();
   const qc = useQueryClient();
   const [busqueda, setBusqueda] = useState('');
+  const [soloPorVencer, setSoloPorVencer] = useState(false);
   const [abierto, setAbierto] = useState<string | null>(null);
   const [pestana, setPestana] = useState<'negocios' | 'operadores' | 'planes' | 'cuenta'>(
     'negocios',
@@ -179,11 +212,14 @@ export function PlatformPage() {
   });
 
   const { data: tenants, isLoading } = useQuery({
-    queryKey: ['platform', 'tenants', busqueda],
-    queryFn: () =>
-      platformApi.get<TenantRow[]>(
-        `/platform/tenants${busqueda ? `?search=${encodeURIComponent(busqueda)}` : ''}`,
-      ),
+    queryKey: ['platform', 'tenants', busqueda, soloPorVencer],
+    queryFn: () => {
+      const p = new URLSearchParams();
+      if (busqueda) p.set('search', busqueda);
+      if (soloPorVencer) p.set('estado', 'por-vencer');
+      const qs = p.toString();
+      return platformApi.get<TenantRow[]>(`/platform/tenants${qs ? `?${qs}` : ''}`);
+    },
   });
 
   const { data: planes } = useQuery({
@@ -257,7 +293,7 @@ export function PlatformPage() {
       {pestana === 'negocios' && (
       <div className="flex flex-col gap-4 p-4">
         {metrics && (
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
             <Tile label="MRR" value={`Bs. ${metrics.mrr}`} hint="suscripciones al día" />
             <Tile
               label="En riesgo"
@@ -274,6 +310,11 @@ export function PlatformPage() {
               value={`+${metrics.altasDelMes} / −${metrics.bajasDelMes}`}
               hint="altas y bajas"
             />
+            <Tile
+              label="Por vencer"
+              value={String(metrics.porVencer + metrics.enGracia + metrics.soloLectura)}
+              hint={`${metrics.porVencer} a ≤15 días · ${metrics.enGracia} en gracia · ${metrics.soloLectura} solo lectura`}
+            />
           </div>
         )}
 
@@ -286,6 +327,15 @@ export function PlatformPage() {
             className="pl-9"
           />
         </div>
+        <label className="flex items-center gap-2 text-[13px]">
+          <input
+            type="checkbox"
+            checked={soloPorVencer}
+            onChange={(e) => setSoloPorVencer(e.target.checked)}
+            className="h-4 w-4"
+          />
+          Solo los que vencen en 15 días o menos (o ya vencidos)
+        </label>
 
         <Card>
           <CardContent className="p-0">
@@ -305,10 +355,13 @@ export function PlatformPage() {
                       <div className="truncate text-[13px] text-muted">
                         {t.slug ?? 'sin subdominio'} · {t.planName ?? 'sin plan'}
                         {t.priceMonthly ? ` · Bs. ${importe(t.priceMonthly, 'anual')}/año` : ''}
+                        {t.status === 'active' && t.currentPeriodEnd
+                          ? ` · compró ${fecha(t.cycleStartedAt)} · vence ${fecha(t.currentPeriodEnd)}`
+                          : ''}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      <VenceBadge vence={t.vence} />
+                      {t.periodo ? <PeriodoBadge periodo={t.periodo} /> : <VenceBadge vence={t.vence} />}
                       <EstadoBadge status={t.status} />
                     </div>
                   </button>
@@ -401,12 +454,45 @@ function TenantModal({
           <div className="flex items-center justify-between">
             <span className="text-[13px] text-muted">{data.business.slug ?? 'sin subdominio'}</span>
             <div className="flex items-center gap-2">
-              <VenceBadge vence={data.vence} />
+              {data.periodo ? <PeriodoBadge periodo={data.periodo} /> : <VenceBadge vence={data.vence} />}
               <EstadoBadge status={sub?.status ?? null} />
             </div>
           </div>
 
-          {data.vence && (
+          {sub?.status === 'active' && sub.currentPeriodEnd && (
+            <dl className="grid grid-cols-2 gap-2 rounded-theme border border-border p-3 text-[13px]">
+              <div>
+                <dt className="text-[11px] uppercase tracking-[0.06em] text-muted">Compró el</dt>
+                <dd className="font-semibold">{fecha(sub.cycleStartedAt)}</dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-[0.06em] text-muted">Termina el</dt>
+                <dd
+                  className={`font-semibold ${
+                    data.periodo && data.periodo.fase !== 'al_dia' ? 'text-danger' : ''
+                  }`}
+                >
+                  {fecha(sub.currentPeriodEnd)}
+                  {data.periodo &&
+                    (data.periodo.diasRestantes >= 0
+                      ? ` (${data.periodo.diasRestantes} d)`
+                      : ` (hace ${data.periodo.diasVencido} d)`)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-[0.06em] text-muted">Contrató</dt>
+                <dd className="font-semibold">
+                  {sub.billingMonths} {sub.billingMonths === 1 ? 'mes' : 'meses'}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-[11px] uppercase tracking-[0.06em] text-muted">Pagó</dt>
+                <dd className="font-semibold">{sub.billedAmount ? `Bs. ${sub.billedAmount}` : '—'}</dd>
+              </div>
+            </dl>
+          )}
+
+          {data.vence && sub?.status !== 'active' && (
             <div className="text-[13px] text-muted">
               {data.vence.concepto === 'prueba' ? 'La prueba termina' : 'El periodo termina'} el{' '}
               {new Date(data.vence.fecha).toLocaleDateString('es-BO', {

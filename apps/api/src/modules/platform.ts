@@ -6,6 +6,7 @@ import {
   cotizar,
   effectiveStatus,
   isBlocked,
+  periodoPagado,
   MENSAJE_SLUG,
   SUBSCRIPTION_STATUS,
   validarSlug,
@@ -74,6 +75,8 @@ const updateSubBody = z.object({
 const listQuery = z.object({
   search: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  /** `por-vencer`: planes pagados a 15 días o menos de vencer, o ya vencidos. */
+  estado: z.enum(['por-vencer']).optional(),
 });
 
 /** Renombrar un negocio o mudarlo de subdominio. */
@@ -593,6 +596,9 @@ export async function platformRoutes(app: FastifyInstance) {
         status: schema.subscription.status,
         trialEndsAt: schema.subscription.trialEndsAt,
         currentPeriodEnd: schema.subscription.currentPeriodEnd,
+        cycleStartedAt: schema.subscription.cycleStartedAt,
+        billingMonths: schema.subscription.billingMonths,
+        billedAmount: schema.subscription.billedAmount,
         suspendedReason: schema.subscription.suspendedReason,
       })
       .from(schema.business)
@@ -611,7 +617,7 @@ export async function platformRoutes(app: FastifyInstance) {
 
     // El estado efectivo (prueba vencida) se calcula aquí, igual que en el API del
     // negocio, para que el panel muestre lo mismo que ve el cliente.
-    const data = rows.map((r) => {
+    const todos = rows.map((r) => {
       const status: EffectiveStatus | null = r.status
         ? effectiveStatus({ status: r.status, trialEndsAt: r.trialEndsAt })
         : null;
@@ -628,8 +634,14 @@ export async function platformRoutes(app: FastifyInstance) {
               currentPeriodEnd: r.currentPeriodEnd,
             })
           : null,
+        // Fase del plan pagado (por vencer / gracia / sólo lectura), calculada por el servidor.
+        periodo: r.status ? periodoPagado({ status: r.status, currentPeriodEnd: r.currentPeriodEnd }) : null,
       };
     });
+    const data =
+      q.data.estado === 'por-vencer'
+        ? todos.filter((r) => r.periodo && r.periodo.fase !== 'al_dia')
+        : todos;
 
     return reply.send({ data, error: null });
   });
@@ -696,6 +708,7 @@ export async function platformRoutes(app: FastifyInstance) {
         subscription: sub ? { ...sub, status } : null,
         blocked: status ? isBlocked(status) : false,
         vence: vencimiento(sub ?? null),
+        periodo: sub ? periodoPagado({ status: sub.status, currentPeriodEnd: sub.currentPeriodEnd }) : null,
         usage: uso,
       },
       error: null,
@@ -1242,6 +1255,8 @@ export async function platformRoutes(app: FastifyInstance) {
           patch.billingMonths = q.meses;
           patch.billedAmount = q.total;
           patch.cycleStartedAt = desde;
+          // Periodo nuevo: vuelve a tocar el aviso de "vence pronto".
+          patch.renewalNoticeSentAt = null;
           patch.currentPeriodEnd = new Date(new Date(desde).setMonth(desde.getMonth() + q.meses));
         }
       } else if (d.planCode !== undefined && d.planCode !== before?.planCode) {
@@ -1380,6 +1395,7 @@ export async function platformRoutes(app: FastifyInstance) {
       .select({
         status: schema.subscription.status,
         trialEndsAt: schema.subscription.trialEndsAt,
+        currentPeriodEnd: schema.subscription.currentPeriodEnd,
         cancelledAt: schema.subscription.cancelledAt,
         createdAt: schema.subscription.createdAt,
         priceMonthly: sql<string>`coalesce(${schema.subscription.lockedPrice}, ${schema.plan.priceMonthly})`,
@@ -1397,8 +1413,13 @@ export async function platformRoutes(app: FastifyInstance) {
     let mrrEnRiesgo = 0;
     let altasDelMes = 0;
     let bajasDelMes = 0;
+    const fases = { porVencer: 0, enGracia: 0, soloLectura: 0 };
 
     for (const r of rows) {
+      const per = periodoPagado({ status: r.status, currentPeriodEnd: r.currentPeriodEnd });
+      if (per?.fase === 'por_vencer') fases.porVencer++;
+      if (per?.fase === 'gracia') fases.enGracia++;
+      if (per?.fase === 'solo_lectura') fases.soloLectura++;
       const status = effectiveStatus({ status: r.status, trialEndsAt: r.trialEndsAt });
       porEstado[status] = (porEstado[status] ?? 0) + 1;
       const precio = Number(r.priceMonthly);
@@ -1420,6 +1441,7 @@ export async function platformRoutes(app: FastifyInstance) {
         bajasDelMes,
         totalNegocios: totalNegocios?.n ?? 0,
         conSuscripcion: rows.length,
+        ...fases,
       },
       error: null,
     });

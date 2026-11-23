@@ -1,4 +1,5 @@
 import type { EffectiveStatus, LimitKey, PlanFeature } from '@ventafacil/shared';
+import type { PeriodoPagado } from '@ventafacil/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -27,6 +28,8 @@ export interface SubscriptionInfo {
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
   currentPeriodEnd: string | null;
+  /** Fase del plan pagado: por vencer, gracia o sólo lectura. `null` si no aplica. */
+  periodo: PeriodoPagado | null;
   features: PlanFeature[] | null;
   usage: Record<LimitKey, { used: number; limit: number | null }>;
 }
