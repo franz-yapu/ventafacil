@@ -1,4 +1,7 @@
-import { MENSAJE_SLUG, slugDesdeNombre, TRIAL_DAYS, validarSlug } from '@ventafacil/shared';
+import { Campo } from '@/components/ui/field';
+import { useValidacion } from '@/lib/useValidacion';
+import { correo, largo, requerido, todas, usuario } from '@/lib/validar';
+import { MENSAJE_SLUG, notaDominio, slugDesdeNombre, TRIAL_DAYS, validarSlug } from '@ventafacil/shared';
 import { Check, Eye, EyeOff, Loader2, X } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
@@ -79,6 +82,14 @@ export function RegisterPage() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    if (!v.intentar() || !slugOk || !acepta) {
+      setError(
+        !acepta && v.intentar()
+          ? 'Debes aceptar los términos para continuar.'
+          : 'Corrige los campos marcados en rojo.',
+      );
+      return;
+    }
     setEnviando(true);
     try {
       const res = await api.post<AltaCreada>('/register', {
@@ -147,14 +158,18 @@ export function RegisterPage() {
   }
 
   const slugOk = disp?.disponible === true;
-  const puedeEnviar =
-    slugOk &&
-    acepta &&
-    businessName.trim() &&
-    adminName.trim() &&
-    email.trim() &&
-    username.trim().length >= 3 &&
-    password.length >= 8;
+  const v = useValidacion(
+    {
+      businessName: todas(requerido('El nombre del negocio'), largo(2, 80)),
+      adminName: todas(requerido('Tu nombre'), largo(2, 80)),
+      email: todas(requerido('El correo'), correo),
+      username: todas(requerido('El usuario'), usuario),
+      password: (x) =>
+        x === '' ? 'La contraseña es obligatoria' : x.length < 8 ? 'Mínimo 8 caracteres' : x.length > 100 ? 'Máximo 100 caracteres' : null,
+    },
+    { businessName, adminName, email, username, password },
+  );
+  const puedeEnviar = true;
 
   return (
     <AuthShell
@@ -178,18 +193,16 @@ export function RegisterPage() {
         <div className="text-[11px] font-bold uppercase tracking-[0.09em] text-muted">
           Tu negocio
         </div>
-        <div>
-          <label className="mb-1 block text-[13px] font-semibold" htmlFor="rg-negocio">
-            Nombre del negocio
-          </label>
-          <Input
-            id="rg-negocio"
-            autoFocus
-            value={businessName}
-            onChange={(e) => setBusinessName(e.target.value)}
-            placeholder="Llantas El Rápido"
-          />
-        </div>
+        <Campo etiqueta="Nombre del negocio" error={v.ver('businessName')}>
+            <Input
+              onBlur={() => v.tocar('businessName')}
+              id="rg-negocio"
+              autoFocus
+              value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)}
+              placeholder="Llantas El Rápido"
+            />
+        </Campo>
 
         <div>
           <label className="mb-1 block text-[13px] font-semibold" htmlFor="rg-slug">
@@ -233,54 +246,55 @@ export function RegisterPage() {
           </div>
         </div>
 
+        <div className="rounded-theme border border-border bg-surface px-3 py-2 text-[12.5px] text-muted">
+          <div className="mb-1 font-semibold text-fg">Cómo se crea tu dirección</div>
+          <ul className="list-disc space-y-0.5 pl-4">
+            {notaDominio(slug, DOMINIO).map((l) => (
+              <li key={l}>{l}</li>
+            ))}
+          </ul>
+          <div className="mt-1">Te enviaremos esta misma nota a tu correo.</div>
+        </div>
+
         <div className="mt-1 border-t border-border pt-4 text-[11px] font-bold uppercase tracking-[0.09em] text-muted">
           Tu cuenta
         </div>
 
-        <div>
-          <label className="mb-1 block text-[13px] font-semibold" htmlFor="rg-nombre">
-            Tu nombre
-          </label>
-          <Input
-            id="rg-nombre"
-            value={adminName}
-            onChange={(e) => setAdminName(e.target.value)}
-            placeholder="Ana Quispe"
-          />
-        </div>
+        <Campo etiqueta="Tu nombre" error={v.ver('adminName')}>
+            <Input
+              onBlur={() => v.tocar('adminName')}
+              id="rg-nombre"
+              value={adminName}
+              onChange={(e) => setAdminName(e.target.value)}
+              placeholder="Ana Quispe"
+            />
+        </Campo>
 
-        <div>
-          <label className="mb-1 block text-[13px] font-semibold" htmlFor="rg-email">
-            Tu correo
-          </label>
-          <Input
-            id="rg-email"
-            type="email"
-            autoCapitalize="none"
-            autoCorrect="off"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="ana@minegocio.com"
-          />
-          <p className="mt-1 text-[12px] text-muted">
-            Es lo único que te permitirá recuperar la contraseña.
-          </p>
-        </div>
+        <Campo etiqueta="Tu correo" ayuda="Es lo único que te permitirá recuperar la contraseña." error={v.ver('email')}>
+            <Input
+              onBlur={() => v.tocar('email')}
+              id="rg-email"
+              type="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="ana@minegocio.com"
+            />
+        </Campo>
 
-        <div>
-          <label className="mb-1 block text-[13px] font-semibold" htmlFor="rg-usuario">
-            Usuario para entrar
-          </label>
-          <Input
-            id="rg-usuario"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            value={username}
-            onChange={(e) => setUsername(e.target.value.toLowerCase())}
-            placeholder="ana"
-          />
-        </div>
+        <Campo etiqueta="Usuario para entrar" error={v.ver('username')}>
+            <Input
+              onBlur={() => v.tocar('username')}
+              id="rg-usuario"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={username}
+              onChange={(e) => setUsername(e.target.value.toLowerCase())}
+              placeholder="ana"
+            />
+        </Campo>
 
         <div>
           <label className="mb-1 block text-[13px] font-semibold" htmlFor="rg-clave">
@@ -289,6 +303,8 @@ export function RegisterPage() {
           <div className="relative">
             <Input
               id="rg-clave"
+              aria-invalid={v.ver('password') ? true : undefined}
+              onBlur={() => v.tocar('password')}
               type={verPassword ? 'text' : 'password'}
               className="pr-11"
               value={password}
@@ -304,6 +320,11 @@ export function RegisterPage() {
               {verPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          {v.ver('password') && (
+            <p role="alert" className="mt-1 text-xs text-danger">
+              {v.ver('password')}
+            </p>
+          )}
         </div>
 
         <label className="flex items-start gap-2 text-[13px]">

@@ -21,7 +21,7 @@ export function Campo({
   opcional?: boolean;
   ayuda?: ReactNode;
   error?: ReactNode;
-  children: ReactElement<{ id?: string; 'aria-describedby'?: string }>;
+  children: ReactElement<{ id?: string; 'aria-describedby'?: string; 'aria-invalid'?: boolean }>;
   className?: string;
 }) {
   const id = useId();
@@ -35,9 +35,10 @@ export function Campo({
       {cloneElement(children, {
         id,
         'aria-describedby': error || ayuda ? notaId : undefined,
+        'aria-invalid': error ? true : undefined,
       })}
       {(error || ayuda) && (
-        <span id={notaId} className={cn('text-xs', error ? 'text-danger' : 'text-muted')}>
+        <span id={notaId} role={error ? 'alert' : undefined} className={cn('text-xs', error ? 'text-danger' : 'text-muted')}>
           {error || ayuda}
         </span>
       )}

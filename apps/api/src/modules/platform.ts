@@ -19,6 +19,7 @@ import { z } from 'zod';
 import { env } from '../env.js';
 import { enviarCorreo, urlDelNegocio } from '../lib/mailer.js';
 import { violaUnica } from '../lib/pg-errores.js';
+import { respaldarNegocio } from '../lib/respaldo-negocio.js';
 import { revocarTodo } from '../lib/sessions.js';
 import { clearAccessCache, invalidateAccess } from '../lib/subscription.js';
 
@@ -790,6 +791,58 @@ export async function platformRoutes(app: FastifyInstance) {
       data: { ...after, url: after!.slug ? urlDelNegocio(after!.slug) : null },
       error: null,
     });
+  });
+
+  /**
+   * Eliminar un negocio EXPIRADO (prueba vencida o cancelado), con copia previa.
+   *
+   * Sólo del principal, y sólo si ya expiró: borrar uno que paga o que está en prueba
+   * sería perder a un cliente por un clic. La copia (JSON) se escribe antes; si falla,
+   * no se borra nada. La bitácora conserva quién lo hizo y dónde quedó la copia.
+   */
+  app.delete('/platform/tenants/:id', { preHandler: app.requirePlatform }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const [biz] = await db
+      .select({ id: schema.business.id, name: schema.business.name, slug: schema.business.slug })
+      .from(schema.business)
+      .where(eq(schema.business.id, id))
+      .limit(1);
+    if (!biz) return reply.code(404).send({ data: null, error: 'Negocio no encontrado' });
+    if (!(await esPrincipal(req, reply, 'eliminar un negocio'))) return reply;
+
+    const [sub] = await db
+      .select()
+      .from(schema.subscription)
+      .where(eq(schema.subscription.businessId, id))
+      .limit(1);
+    const estado = sub ? effectiveStatus({ status: sub.status, trialEndsAt: sub.trialEndsAt }) : null;
+    if (estado !== 'trial_expired' && estado !== 'cancelled') {
+      return reply.code(409).send({
+        data: null,
+        error: 'Sólo se pueden eliminar negocios expirados (prueba vencida o cancelados)',
+      });
+    }
+
+    let respaldo;
+    try {
+      respaldo = await respaldarNegocio(id);
+    } catch (e) {
+      req.log.error({ err: e }, 'falló la copia previa al borrado');
+      return reply
+        .code(500)
+        .send({ data: null, error: 'No se pudo hacer la copia de seguridad; no se eliminó nada' });
+    }
+
+    await db.delete(schema.business).where(eq(schema.business.id, id));
+    clearAccessCache();
+    await registrar(req, {
+      action: 'tenant_delete',
+      businessId: null,
+      businessName: biz.name,
+      before: { ...biz, estado },
+      after: { copia: respaldo.archivo, filas: respaldo.filas },
+    });
+    return reply.send({ data: { eliminado: true, copia: respaldo.archivo, filas: respaldo.filas }, error: null });
   });
 
   // ── Soporte: usuarios de un negocio ──────────────────────────

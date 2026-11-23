@@ -2,6 +2,10 @@ import { useMutation } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { useValidacion } from '@/lib/useValidacion';
+import { correo as reglaCorreo, largo, requerido, todas } from '@/lib/validar';
+import { LIMITES } from '@ventafacil/shared';
 import { Modal } from '@/components/ui/modal';
 import { usePlatformAuth } from '@/features/platform/PlatformAuthProvider';
 import { platformApi } from '@/lib/api';
@@ -31,6 +35,22 @@ export function MiCuentaModal({ onClose }: { onClose: () => void }) {
    * segundo y medio te echaba sin que hubieras llegado a leer por qué.
    */
   const [saliendo, setSaliendo] = useState(false);
+
+  const vp = useValidacion(
+    {
+      nombre: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      correo: todas(requerido('El correo'), reglaCorreo),
+    },
+    { nombre, correo },
+  );
+  const vc = useValidacion(
+    {
+      actual: requerido('La contraseña actual'),
+      nueva: (x: string) =>
+        x === '' ? 'La contraseña nueva es obligatoria' : x.length < 12 ? 'Mínimo 12 caracteres' : x.length > 100 ? 'Máximo 100 caracteres' : null,
+    },
+    { actual, nueva },
+  );
 
   const guardarPerfil = useMutation({
     mutationFn: (body: { name?: string; email?: string }) =>
@@ -69,39 +89,35 @@ export function MiCuentaModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <Modal open onClose={saliendo ? () => undefined : onClose} title="Mi cuenta">
+    <Modal open inline onClose={saliendo ? () => undefined : onClose} title="Mi cuenta">
       <div className="flex flex-col gap-5">
         <div className="flex flex-col gap-3">
-          <div>
-            <label htmlFor="mi-cuenta-nombre" className="mb-1 block text-[13px] font-semibold">
-              Nombre
-            </label>
+          <Campo etiqueta="Nombre" error={vp.ver('nombre')}>
             <Input
-              id="mi-cuenta-nombre"
               value={nombre}
+              onBlur={() => vp.tocar('nombre')}
               onChange={(e) => setNombre(e.target.value)}
             />
-          </div>
-          <div>
-            <label htmlFor="mi-cuenta-correo" className="mb-1 block text-[13px] font-semibold">
-              Correo
-            </label>
+          </Campo>
+          <Campo
+            etiqueta="Correo"
+            ayuda="Es el usuario con el que entras al panel. Si lo cambias, tendrás que volver a entrar."
+            error={vp.ver('correo')}
+          >
             <Input
-              id="mi-cuenta-correo"
               type="email"
               autoCapitalize="none"
               autoCorrect="off"
               value={correo}
+              onBlur={() => vp.tocar('correo')}
               onChange={(e) => setCorreo(e.target.value)}
             />
-            <p className="mt-1 text-[12px] text-muted">
-              Es el usuario con el que entras al panel. Si lo cambias, tendrás que volver a entrar.
-            </p>
-          </div>
+          </Campo>
           <Button
             variant="outline"
             disabled={guardarPerfil.isPending}
             onClick={() => {
+              if (!vp.intentar()) return;
               const body: { name?: string; email?: string } = {};
               if (nombre !== admin?.name) body.name = nombre;
               if (correo !== admin?.email) body.email = correo;
@@ -116,24 +132,28 @@ export function MiCuentaModal({ onClose }: { onClose: () => void }) {
         <div className="border-t border-border pt-4">
           <div className="mb-2 text-[13px] font-semibold">Cambiar contraseña</div>
           <div className="flex flex-col gap-3">
-            <Input
-              type="password"
-              value={actual}
-              onChange={(e) => setActual(e.target.value)}
-              placeholder="Contraseña actual"
-              autoComplete="current-password"
-            />
-            <Input
-              type="password"
-              value={nueva}
-              onChange={(e) => setNueva(e.target.value)}
-              placeholder="Contraseña nueva (mínimo 12)"
-              autoComplete="new-password"
-            />
+            <Campo etiqueta="Contraseña actual" error={vc.ver('actual')}>
+              <Input
+                type="password"
+                value={actual}
+                onBlur={() => vc.tocar('actual')}
+                onChange={(e) => setActual(e.target.value)}
+                autoComplete="current-password"
+              />
+            </Campo>
+            <Campo etiqueta="Contraseña nueva" ayuda="Mínimo 12 caracteres." error={vc.ver('nueva')}>
+              <Input
+                type="password"
+                value={nueva}
+                onBlur={() => vc.tocar('nueva')}
+                onChange={(e) => setNueva(e.target.value)}
+                autoComplete="new-password"
+              />
+            </Campo>
             <Button
               variant="outline"
-              disabled={cambiarPassword.isPending || !actual || nueva.length < 12}
-              onClick={() => cambiarPassword.mutate()}
+              disabled={cambiarPassword.isPending}
+              onClick={() => vc.intentar() && cambiarPassword.mutate()}
             >
               {cambiarPassword.isPending ? 'Cambiando…' : 'Cambiar contraseña'}
             </Button>

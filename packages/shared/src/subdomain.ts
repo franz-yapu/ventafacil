@@ -103,3 +103,17 @@ export function slugDesdeNombre(nombre: string): string {
     .slice(0, SLUG_MAX)
     .replace(/-+$/g, '');
 }
+
+/**
+ * Nota que explica cómo se crea la dirección (dominio) del negocio. UNA sola redacción
+ * para el formulario de registro y para el correo de bienvenida, así nunca se contradicen.
+ */
+export function notaDominio(slug: string, dominioBase: string): string[] {
+  const dir = `${slug || 'mi-negocio'}.${dominioBase}`;
+  return [
+    `Tu dirección será ${dir}.`,
+    'Se crea sola al registrar el negocio: no tienes que comprar ni configurar nada.',
+    'Sale del nombre que elijas: solo minúsculas, números y guiones, sin espacios.',
+    'Es la dirección por la que entrarán tú y tu personal; guárdala o ponla en favoritos.',
+  ];
+}

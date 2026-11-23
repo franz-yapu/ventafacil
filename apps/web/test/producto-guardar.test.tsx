@@ -100,6 +100,7 @@ async function rellenarConFoto() {
   // Por su rótulo, que ahora está asociado al campo; el buscador de la pantalla no lo tiene.
   const nombre = await screen.findByLabelText('Nombre');
   await userEvent.type(nombre, 'Llanta 175/70 R13');
+  await userEvent.type(screen.getByLabelText('Precio de venta'), '350');
 
   /*
     `fireEvent.change` y no `userEvent.upload`: el `<input type="file">` va con

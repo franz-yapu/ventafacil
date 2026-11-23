@@ -27,7 +27,8 @@ export async function inventoryRoutes(app: FastifyInstance) {
       Y ajustar no se toca: `canAdjust` sigue saliendo de `canAdjustInventory` por fila, así
       que se ve todo y se corrige sólo lo propio.
     */
-    const filters = [eq(schema.inventory.businessId, businessId)];
+    // Un producto dado de baja no sale en el inventario: no se vende ni se repone.
+    const filters = [eq(schema.inventory.businessId, businessId), eq(schema.product.isActive, true)];
     if (q.data.locationId) filters.push(eq(schema.inventory.locationId, q.data.locationId));
 
     const rows = await withTenant(businessId, (tx) =>

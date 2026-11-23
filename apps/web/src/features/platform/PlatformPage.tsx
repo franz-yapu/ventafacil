@@ -1,3 +1,4 @@
+import { importe } from '@/features/subscription/PlanCard';
 import type { EffectiveStatus, SubscriptionStatus } from '@ventafacil/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Copy, KeyRound, LogOut, Search, ShieldCheck, Tag, UserCog, Users } from 'lucide-react';
@@ -6,6 +7,10 @@ import { Badge, type BadgeTone } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { LIMITES, MENSAJE_SLUG, validarSlug } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { largo, requerido, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { MiCuentaModal } from '@/features/platform/MiCuentaModal';
@@ -157,9 +162,16 @@ export function PlatformPage() {
   const qc = useQueryClient();
   const [busqueda, setBusqueda] = useState('');
   const [abierto, setAbierto] = useState<string | null>(null);
-  const [miCuenta, setMiCuenta] = useState(false);
-  const [operadores, setOperadores] = useState(false);
-  const [planesAbierto, setPlanesAbierto] = useState(false);
+  const [pestana, setPestana] = useState<'negocios' | 'operadores' | 'planes' | 'cuenta'>(
+    'negocios',
+  );
+  const irANegocios = () => setPestana('negocios');
+  const pestanas = [
+    { id: 'negocios' as const, label: 'Negocios', icon: ShieldCheck, visible: true },
+    { id: 'operadores' as const, label: 'Operadores', icon: Users, visible: !!admin?.isOwner },
+    { id: 'planes' as const, label: 'Planes', icon: Tag, visible: !!admin?.isOwner },
+    { id: 'cuenta' as const, label: 'Mi cuenta', icon: UserCog, visible: true },
+  ].filter((p) => p.visible);
 
   const { data: metrics } = useQuery({
     queryKey: ['platform', 'metrics'],
@@ -205,39 +217,44 @@ export function PlatformPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {/* Administrar operadores sólo aparece para quien puede: un botón que
-              siempre responde "no tienes permiso" es peor que no estar. */}
-          {admin?.isOwner && (
-            <Button
-              variant="outline"
-              onClick={() => setOperadores(true)}
-              className="h-9 px-3 text-[13px]"
-            >
-              <Users size={15} /> Operadores
-            </Button>
-          )}
-          {admin?.isOwner && (
-            <Button
-              variant="outline"
-              onClick={() => setPlanesAbierto(true)}
-              className="h-9 px-3 text-[13px]"
-            >
-              <Tag size={15} /> Planes
-            </Button>
-          )}
-          <Button
-            variant="outline"
-            onClick={() => setMiCuenta(true)}
-            className="h-9 px-3 text-[13px]"
-          >
-            <UserCog size={15} /> Mi cuenta
-          </Button>
           <Button variant="outline" onClick={logout} className="h-9 px-3 text-[13px]">
             <LogOut size={15} /> Salir
           </Button>
         </div>
       </header>
 
+      <nav aria-label="Secciones" className="flex gap-1 overflow-x-auto border-b border-border bg-surface px-4">
+        {pestanas.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setPestana(p.id)}
+            aria-current={pestana === p.id ? 'page' : undefined}
+            className={`flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-2.5 text-[13px] font-semibold ${
+              pestana === p.id ? 'border-primary text-fg' : 'border-transparent text-muted hover:text-fg'
+            }`}
+          >
+            <p.icon size={15} /> {p.label}
+          </button>
+        ))}
+      </nav>
+
+      {pestana === 'operadores' && (
+        <div className="p-4">
+          <OperadoresModal onClose={irANegocios} />
+        </div>
+      )}
+      {pestana === 'planes' && (
+        <div className="p-4">
+          <PlanesModal onClose={irANegocios} />
+        </div>
+      )}
+      {pestana === 'cuenta' && (
+        <div className="p-4">
+          <MiCuentaModal onClose={irANegocios} />
+        </div>
+      )}
+
+      {pestana === 'negocios' && (
       <div className="flex flex-col gap-4 p-4">
         {metrics && (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -287,7 +304,7 @@ export function PlatformPage() {
                       <div className="truncate text-sm font-semibold">{t.name}</div>
                       <div className="truncate text-[13px] text-muted">
                         {t.slug ?? 'sin subdominio'} · {t.planName ?? 'sin plan'}
-                        {t.priceMonthly ? ` · Bs. ${t.priceMonthly}/mes` : ''}
+                        {t.priceMonthly ? ` · Bs. ${importe(t.priceMonthly, 'anual')}/año` : ''}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
@@ -301,6 +318,7 @@ export function PlatformPage() {
           </CardContent>
         </Card>
       </div>
+      )}
 
       {abierto && (
         <TenantModal
@@ -312,9 +330,6 @@ export function PlatformPage() {
           }}
         />
       )}
-      {miCuenta && <MiCuentaModal onClose={() => setMiCuenta(false)} />}
-      {operadores && <OperadoresModal onClose={() => setOperadores(false)} />}
-      {planesAbierto && <PlanesModal onClose={() => setPlanesAbierto(false)} />}
     </div>
   );
 }
@@ -350,6 +365,19 @@ function TenantModal({
     'suspended',
     'cancelled',
   ];
+
+  const eliminar = useMutation({
+    mutationFn: () =>
+      platformApi.del<{ eliminado: boolean; copia: string; filas: number }>(
+        `/platform/tenants/${id}`,
+      ),
+    onSuccess: (r) => {
+      window.alert(`Negocio eliminado. Copia de seguridad guardada en:\n${r.copia}`);
+      onGuardado();
+      onClose();
+    },
+    onError: (e: Error) => setError(e.message),
+  });
 
   const guardar = useMutation({
     mutationFn: (body: Record<string, unknown>) =>
@@ -425,7 +453,7 @@ function TenantModal({
               {!sub && <option value="">— elegir plan —</option>}
               {planes.map((p) => (
                 <option key={p.code} value={p.code}>
-                  {p.name} · Bs. {p.priceMonthly}/mes
+                  {p.name} · Bs. {importe(p.priceMonthly, 'anual')}/año
                 </option>
               ))}
               {/* El plan interno no está en /plans, pero un negocio puede tenerlo. */}
@@ -461,6 +489,32 @@ function TenantModal({
           )}
 
           {error && <p className="text-[13px] text-danger">{error}</p>}
+
+          {(sub?.status === 'trial_expired' || sub?.status === 'cancelled') && (
+            <div className="rounded-theme border border-danger/40 p-3 text-[13px]">
+              <div className="font-semibold text-danger">Negocio expirado</div>
+              <p className="mt-1 text-muted">
+                Se puede eliminar. Antes se guarda una copia de seguridad de todos sus datos.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-2 text-danger"
+                disabled={eliminar.isPending}
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      '¿Eliminar este negocio y todos sus datos? Se hará una copia de seguridad antes.',
+                    )
+                  ) {
+                    setError(null);
+                    eliminar.mutate();
+                  }
+                }}
+              >
+                {eliminar.isPending ? 'Respaldando y eliminando…' : 'Eliminar negocio (con copia)'}
+              </Button>
+            </div>
+          )}
 
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={onClose}>
@@ -521,6 +575,18 @@ function DatosDelNegocio({
   const [abierto, setAbierto] = useState(false);
   const [n, setN] = useState(nombre);
   const [s, setS] = useState(slug ?? '');
+  const vd = useValidacion(
+    {
+      n: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      s: (x: string) => {
+        const t = x.trim().toLowerCase();
+        if (t === '') return t === (slug ?? '') ? null : 'El subdominio es obligatorio';
+        const p = validarSlug(t);
+        return p ? MENSAJE_SLUG[p] : null;
+      },
+    },
+    { n, s },
+  );
   const [error, setError] = useState<string | null>(null);
   const [nuevaUrl, setNuevaUrl] = useState<string | null>(null);
 
@@ -546,18 +612,21 @@ function DatosDelNegocio({
 
   return (
     <div className="flex flex-col gap-3 rounded-theme border border-border p-3">
-      <div>
-        <label className="mb-1 block text-[13px] font-semibold">Nombre del negocio</label>
-        <Input value={n} onChange={(e) => setN(e.target.value)} />
-      </div>
-      <div>
-        <label className="mb-1 block text-[13px] font-semibold">Subdominio</label>
-        <Input value={s} onChange={(e) => setS(e.target.value)} placeholder="mi-negocio" />
-        <p className="mt-1 text-[12px] text-warning">
-          Si lo cambias, la dirección actual deja de funcionar de inmediato. Avísale al cliente
-          antes.
-        </p>
-      </div>
+      <Campo etiqueta="Nombre del negocio" error={vd.ver('n')}>
+        <Input value={n} onBlur={() => vd.tocar('n')} onChange={(e) => setN(e.target.value)} />
+      </Campo>
+      <Campo
+        etiqueta="Subdominio"
+        ayuda="Si lo cambias, la dirección actual deja de funcionar de inmediato. Avísale al cliente antes."
+        error={vd.ver('s')}
+      >
+        <Input
+          value={s}
+          onBlur={() => vd.tocar('s')}
+          onChange={(e) => setS(e.target.value.toLowerCase())}
+          placeholder="mi-negocio"
+        />
+      </Campo>
       {error && <p className="text-[13px] text-danger">{error}</p>}
       {nuevaUrl && <p className="text-[13px] text-success">Nueva dirección: {nuevaUrl}</p>}
       <div className="flex gap-2">
@@ -568,6 +637,7 @@ function DatosDelNegocio({
           className="flex-1"
           disabled={guardar.isPending}
           onClick={() => {
+            if (!vd.intentar()) return;
             const body: Record<string, unknown> = {};
             if (n !== nombre) body.name = n;
             if (s !== (slug ?? '')) body.slug = s;

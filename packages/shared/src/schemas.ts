@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { PAYMENT_METHODS, ROLES, SALE_STATUS } from './constants.js';
+import { LIMITES, PAYMENT_METHODS, ROLES, SALE_STATUS } from './constants.js';
 
 /**
  * Dinero: string decimal para no perder precision (nunca float).
@@ -12,6 +12,11 @@ import { PAYMENT_METHODS, ROLES, SALE_STATUS } from './constants.js';
 export const money = z
   .string()
   .regex(/^\d+(\.\d{1,2})?$/, 'Monto invalido (usa hasta 2 decimales, sin negativos)');
+
+/** Importe unitario de catálogo (precio, costo): `money` con el tope de `LIMITES`. */
+export const importeUnitario = money.refine((v) => Number(v) <= LIMITES.importeMax, {
+  message: `El importe no puede pasar de ${LIMITES.importeMax}`,
+});
 
 /** Para los pocos sitios donde un negativo SÍ tiene sentido (ajustes, diferencias). */
 export const moneyConSigno = z
@@ -115,16 +120,21 @@ export const verifyEmailSchema = z.object({
 
 // ── Usuarios / ubicaciones ─────────────────────────────────────
 export const createUserSchema = z.object({
-  name: z.string().min(1),
-  username: z.string().min(3),
-  password: z.string().min(6),
+  name: z.string().trim().min(1, 'El nombre es obligatorio').max(LIMITES.nombreMax),
+  username: z
+    .string()
+    .trim()
+    .min(3, 'El usuario necesita al menos 3 caracteres')
+    .max(LIMITES.usuarioMax)
+    .regex(/^[a-zA-Z0-9._-]+$/, 'Solo letras, números, punto, guion y guion bajo'),
+  password: z.string().min(6).max(LIMITES.claveMax),
   role: z.enum(ROLES),
   locationId: z.string().uuid().nullable().optional(),
 });
 
 export const createLocationSchema = z.object({
-  name: z.string().min(1),
-  address: z.string().optional(),
+  name: z.string().trim().min(1, 'El nombre es obligatorio').max(LIMITES.nombreMax),
+  address: z.string().max(LIMITES.direccionMax).optional(),
 });
 
 // ── Productos ──────────────────────────────────────────────────
@@ -136,13 +146,21 @@ export const upsertProductSchema = z.object({
     z.string().trim().min(1).optional(),
   ),
   barcode: z.string().nullable().optional(),
-  name: z.string().min(1),
-  description: z.string().nullable().optional(),
+  name: z
+    .string()
+    .trim()
+    .min(1, 'El nombre es obligatorio')
+    .max(LIMITES.nombreMax, `El nombre admite hasta ${LIMITES.nombreMax} caracteres`),
+  description: z
+    .string()
+    .max(LIMITES.descripcionMax, `La descripción admite hasta ${LIMITES.descripcionMax} caracteres`)
+    .nullable()
+    .optional(),
   categoryId: z.string().uuid().nullable().optional(),
-  price: money,
+  price: importeUnitario,
   // cost = precio de compra unitario; costWholesale = precio de compra por mayor.
-  cost: money.nullable().optional(),
-  costWholesale: money.nullable().optional(),
+  cost: importeUnitario.nullable().optional(),
+  costWholesale: importeUnitario.nullable().optional(),
   /*
     `imageUrl` NO se acepta aquí, y es a propósito por dos motivos.
 
@@ -162,8 +180,8 @@ export const upsertProductSchema = z.object({
   // Sólo al CREAR (la central asigna). Se ignoran al editar el producto.
   // locationId = sucursal dueña; initialStock/minStock siembran su fila de inventario.
   locationId: z.string().uuid().optional(),
-  initialStock: z.coerce.number().int().min(0).optional(),
-  minStock: z.coerce.number().int().min(0).nullable().optional(),
+  initialStock: z.coerce.number().int().min(0).max(LIMITES.cantidadMax).optional(),
+  minStock: z.coerce.number().int().min(0).max(LIMITES.cantidadMax).nullable().optional(),
 });
 
 // ── Ventas (creadas en el cliente, offline-first) ──────────────
@@ -335,9 +353,9 @@ export const cashMovementSchema = z.object({
  * justo lo que falló.
  */
 export const upsertCustomerSchema = z.object({
-  name: z.string().trim().min(1, 'Ponle un nombre'),
-  phone: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  name: z.string().trim().min(1, 'Ponle un nombre').max(LIMITES.nombreMax),
+  phone: z.string().max(30, 'El teléfono es demasiado largo').nullable().optional(),
+  notes: z.string().max(LIMITES.notaMax).nullable().optional(),
 });
 
 /**

@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Page, PageHeader } from '@/components/ui/page';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { LIMITES } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { clave, correo, largo, requerido, todas } from '@/lib/validar';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { BotonAyuda } from '@/features/tour/BotonAyuda';
 import { ApiError } from '@/lib/api';
@@ -15,10 +19,14 @@ function PasswordField({
   value,
   onChange,
   placeholder,
+  error,
+  onBlur,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
+  error?: string;
+  onBlur?: () => void;
 }) {
   const [show, setShow] = useState(false);
   return (
@@ -28,12 +36,19 @@ function PasswordField({
         className="pr-11"
         value={value}
         placeholder={placeholder}
+        aria-invalid={error ? true : undefined}
+        onBlur={onBlur}
         onChange={(e) => onChange(e.target.value)}
       />
+      {error && (
+        <p role="alert" className="mt-1 text-xs text-danger">
+          {error}
+        </p>
+      )}
       <button
         type="button"
         onClick={() => setShow((v) => !v)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-muted hover:text-fg"
+        className="absolute right-2 top-[22px] -translate-y-1/2 p-1.5 text-muted hover:text-fg"
         aria-label={show ? 'Ocultar contraseña' : 'Mostrar contraseña'}
       >
         {show ? <EyeOff size={18} /> : <Eye size={18} />}
@@ -61,16 +76,24 @@ export function ProfilePage() {
   const nameChanged = name.trim() !== '' && name.trim() !== (user?.name ?? '');
   const emailChanged = email.trim().toLowerCase() !== (user?.email ?? '').toLowerCase();
 
+  const v = useValidacion(
+    {
+      name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      email: correo,
+      currentPassword: (x) => (wantsPasswordChange && x === '' ? 'Ingresa tu contraseña actual' : null),
+      newPassword: (x) =>
+        wantsPasswordChange ? (x === '' ? 'Escribe la nueva contraseña' : clave(x)) : null,
+      confirmPassword: (x) =>
+        wantsPasswordChange && x !== newPassword ? 'Las contraseñas no coinciden' : null,
+    },
+    { name, email, currentPassword, newPassword, confirmPassword },
+  );
+
   async function onSave() {
     setError(null);
     setOk(false);
 
-    if (wantsPasswordChange) {
-      if (newPassword.length < 6)
-        return setError('La nueva contraseña debe tener al menos 6 caracteres');
-      if (newPassword !== confirmPassword) return setError('Las contraseñas nuevas no coinciden');
-      if (!currentPassword) return setError('Ingresa tu contraseña actual');
-    }
+    if (!v.intentar()) return setError('Corrige los campos marcados en rojo.');
     if (!nameChanged && !wantsPasswordChange && !emailChanged)
       return setError('No hay cambios para guardar');
 
@@ -131,31 +154,34 @@ export function ProfilePage() {
             </div>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <div>
-              <label className="text-sm text-muted">Nombre</label>
+            <Campo etiqueta="Nombre" error={v.ver('name')}>
               <Input
                 value={name}
+                onBlur={() => v.tocar('name')}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Tu nombre"
               />
-            </div>
+            </Campo>
 
-            <div>
-              <label className="text-sm text-muted">Correo</label>
+            <Campo
+              etiqueta="Correo"
+              ayuda={
+                user?.emailVerified
+                  ? 'Confirmado. Podrás recuperar tu contraseña si la olvidas.'
+                  : 'Sin un correo confirmado no podrás recuperar tu contraseña.'
+              }
+              error={v.ver('email')}
+            >
               <Input
                 type="email"
                 autoCapitalize="none"
                 autoCorrect="off"
                 value={email}
+                onBlur={() => v.tocar('email')}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="tu@correo.com"
               />
-              <p className="mt-1 text-xs text-muted">
-                {user?.emailVerified
-                  ? 'Confirmado. Podrás recuperar tu contraseña si la olvidas.'
-                  : 'Sin un correo confirmado no podrás recuperar tu contraseña.'}
-              </p>
-            </div>
+            </Campo>
 
             <div className="mt-1 border-t border-border pt-3">
               <p className="mb-2 text-sm font-semibold">Cambiar contraseña</p>
@@ -163,16 +189,22 @@ export function ProfilePage() {
               <div className="flex flex-col gap-2">
                 <PasswordField
                   value={currentPassword}
+                  error={v.ver('currentPassword')}
+                  onBlur={() => v.tocar('currentPassword')}
                   onChange={setCurrentPassword}
                   placeholder="Contraseña actual"
                 />
                 <PasswordField
                   value={newPassword}
+                  error={v.ver('newPassword')}
+                  onBlur={() => v.tocar('newPassword')}
                   onChange={setNewPassword}
                   placeholder="Nueva contraseña (mín. 6)"
                 />
                 <PasswordField
                   value={confirmPassword}
+                  error={v.ver('confirmPassword')}
+                  onBlur={() => v.tocar('confirmPassword')}
                   onChange={setConfirmPassword}
                   placeholder="Repetir nueva contraseña"
                 />

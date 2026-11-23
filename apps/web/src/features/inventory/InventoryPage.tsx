@@ -5,6 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Exportar } from '@/components/Exportar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { useValidacion } from '@/lib/useValidacion';
+import { entero, largo, requerido, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { EmptyState, Page, PageHeader, SkeletonRows } from '@/components/ui/page';
 import { Select } from '@/components/ui/select';
@@ -287,12 +290,24 @@ function AdjustModal({
   const [reason, setReason] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const v = useValidacion(
+    {
+      qty: todas(requerido('El stock'), entero()),
+      min: entero(),
+      reason: todas(
+        requerido('El motivo'),
+        (x) => (x.trim().length < 3 ? 'Mínimo 3 caracteres' : null),
+        largo(3, 200),
+      ),
+    },
+    { qty, min, reason },
+  );
   const save = useMutation({
     mutationFn: () =>
       api.patch(`/inventory/${row.id}`, {
         quantity: Number(qty),
         minStock: min === '' ? null : Number(min),
-        reason,
+        reason: reason.trim(),
       }),
     onSuccess: onDone,
     onError: (e) => setError(e instanceof ApiError ? e.message : 'Error al ajustar'),
@@ -303,32 +318,39 @@ function AdjustModal({
       <div className="flex flex-col gap-3">
         <div className="text-sm text-muted">{row.locationName}</div>
         <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm text-muted">Stock</label>
-            <Input inputMode="numeric" value={qty} onChange={(e) => setQty(e.target.value)} />
-          </div>
-          <div>
-            <label className="text-sm text-muted">Mínimo</label>
+          <Campo etiqueta="Stock" error={v.ver('qty')}>
+            <Input
+              inputMode="numeric"
+              value={qty}
+              onBlur={() => v.tocar('qty')}
+              onChange={(e) => setQty(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Mínimo" opcional error={v.ver('min')}>
             <Input
               inputMode="numeric"
               value={min}
               placeholder="—"
+              onBlur={() => v.tocar('min')}
               onChange={(e) => setMin(e.target.value)}
             />
-          </div>
+          </Campo>
         </div>
-        <label className="text-sm text-muted">Motivo (obligatorio)</label>
-        <Input
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Ej. conteo físico, merma, ingreso"
-          autoFocus
-        />
+        <Campo etiqueta="Motivo (obligatorio)" error={v.ver('reason')}>
+          <Input
+            value={reason}
+            onBlur={() => v.tocar('reason')}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Ej. conteo físico, merma, ingreso"
+            autoFocus
+          />
+        </Campo>
         {error && <p className="text-sm text-danger">{error}</p>}
         <Button
-          disabled={reason.trim().length < 3 || save.isPending}
+          disabled={save.isPending}
           onClick={() => {
             setError(null);
+            if (!v.intentar()) return;
             save.mutate();
           }}
         >
@@ -374,6 +396,19 @@ function TransferModal({
   const stockAt = (loc: string) =>
     allRows.find((r) => r.productId === productId && r.locationId === loc)?.quantity ?? 0;
 
+  const disponible = stockAt(fromLocationId);
+  const v = useValidacion(
+    {
+      quantity: todas(requerido('La cantidad'), entero(), (x) =>
+        x.trim() !== '' && Number(x) < 1
+          ? 'Debe ser al menos 1'
+          : Number(x) > disponible
+            ? `Solo hay ${disponible} en el origen`
+            : null,
+      ),
+    },
+    { quantity },
+  );
   const transfer = useMutation({
     mutationFn: () =>
       api.post('/inventory/transfer', {
@@ -419,13 +454,25 @@ function TransferModal({
             </Select>
           </div>
         </div>
-        <label className="text-sm text-muted">Cantidad</label>
-        <Input value={quantity} inputMode="numeric" onChange={(e) => setQuantity(e.target.value)} />
+        <Campo etiqueta="Cantidad" ayuda={`Disponible en el origen: ${disponible}`} error={v.ver('quantity')}>
+          <Input
+            value={quantity}
+            inputMode="numeric"
+            onBlur={() => v.tocar('quantity')}
+            onChange={(e) => setQuantity(e.target.value)}
+          />
+        </Campo>
+        {fromLocationId === toLocationId && (
+          <p role="alert" className="text-xs text-danger">
+            El origen y el destino no pueden ser la misma ubicación.
+          </p>
+        )}
         {error && <p className="text-sm text-danger">{error}</p>}
         <Button
-          disabled={transfer.isPending || Number(quantity) < 1 || fromLocationId === toLocationId}
+          disabled={transfer.isPending || fromLocationId === toLocationId}
           onClick={() => {
             setError(null);
+            if (!v.intentar()) return;
             transfer.mutate();
           }}
         >

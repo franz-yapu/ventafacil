@@ -290,7 +290,7 @@ export function AuthTabs({ actual }: { actual: 'entrar' | 'registro' }) {
 }
 
 /** Versión visible en el pie de todas las pantallas de entrada. */
-export const VERSION_APP = '0.0.1';
+export const VERSION_APP = '0.0.2';
 
 /** Marco de página: sala oscura a la izquierda, hoja de formulario a la derecha. */
 export function AuthLayout({

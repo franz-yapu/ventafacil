@@ -1,5 +1,5 @@
 import { crearNegocio, slugDisponible } from '@ventafacil/db';
-import { MENSAJE_SLUG, registerSchema, TRIAL_DAYS, validarSlug } from '@ventafacil/shared';
+import { MENSAJE_SLUG, notaDominio, registerSchema, TRIAL_DAYS, validarSlug } from '@ventafacil/shared';
 import argon2 from 'argon2';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -114,7 +114,8 @@ export async function registerRoutes(app: FastifyInstance) {
         text:
           `Hola ${d.adminName.trim()}:\n\n` +
           `Tu negocio "${d.businessName.trim()}" ya está listo en VentaFácil.\n\n` +
-          `Entra aquí: ${urlDelNegocio(slug)}\n` +
+          `Entra aquí: ${urlDelNegocio(slug)}\n\n` +
+          `Cómo se creó tu dirección:\n${notaDominio(slug, env.appDomain).map((l) => `- ${l}`).join('\n')}\n\n` +
           `Tu usuario: ${d.username.toLowerCase().trim()}\n\n` +
           `Confirma tu correo para poder recuperar la contraseña si algún día la olvidas:\n` +
           `${enlace}\n\n` +
