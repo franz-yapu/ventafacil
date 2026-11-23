@@ -51,7 +51,7 @@ el servidor y la web, y se lee mejor que cualquier copia que hiciéramos aquí.
 
 ---
 
-## Endpoints (83)
+## Endpoints (90)
 
 ### Actividad
 
@@ -80,10 +80,12 @@ el servidor y la web, y se lee mejor que cualquier copia que hiciéramos aquí.
 | `GET`    | `/api/v1/products`             | requerida |
 | `POST`   | `/api/v1/products`             | requerida |
 | `PATCH`  | `/api/v1/products/:id`         | requerida |
+| `DELETE` | `/api/v1/products/:id`         | requerida |
 | `GET`    | `/api/v1/products/:id/history` | requerida |
 | `POST`   | `/api/v1/products/:id/image`   | requerida |
 | `DELETE` | `/api/v1/products/:id/image`   | requerida |
 | `POST`   | `/api/v1/products/import`      | requerida |
+| `POST`   | `/api/v1/products/lookup`      | requerida |
 
 ### Clientes y fiado
 
@@ -110,6 +112,7 @@ el servidor y la web, y se lee mejor que cualquier copia que hiciéramos aquí.
 | `PATCH` | `/api/v1/business`        | requerida |
 | `GET`   | `/api/v1/business/export` | requerida |
 | `GET`   | `/api/v1/business/me`     | requerida |
+| `POST`  | `/api/v1/business/terms`  | requerida |
 
 ### Otros
 
@@ -124,25 +127,28 @@ el servidor y la web, y se lee mejor que cualquier copia que hiciéramos aquí.
 
 ### Panel de plataforma
 
-| Método  | Ruta                                                  | Sesión    |
-| ------- | ----------------------------------------------------- | --------- |
-| `GET`   | `/api/v1/platform/admins`                             | requerida |
-| `POST`  | `/api/v1/platform/admins`                             | requerida |
-| `PATCH` | `/api/v1/platform/admins/:id`                         | requerida |
-| `GET`   | `/api/v1/platform/audit`                              | requerida |
-| `POST`  | `/api/v1/platform/login`                              | — pública |
-| `GET`   | `/api/v1/platform/me`                                 | requerida |
-| `PATCH` | `/api/v1/platform/me`                                 | requerida |
-| `PATCH` | `/api/v1/platform/me/password`                        | requerida |
-| `GET`   | `/api/v1/platform/metrics`                            | requerida |
-| `GET`   | `/api/v1/platform/tenants`                            | requerida |
-| `GET`   | `/api/v1/platform/tenants/:id`                        | requerida |
-| `PATCH` | `/api/v1/platform/tenants/:id`                        | requerida |
-| `GET`   | `/api/v1/platform/tenants/:id/cotizacion`             | requerida |
-| `GET`   | `/api/v1/platform/tenants/:id/devolucion`             | requerida |
-| `PATCH` | `/api/v1/platform/tenants/:id/subscription`           | requerida |
-| `GET`   | `/api/v1/platform/tenants/:id/users`                  | requerida |
-| `POST`  | `/api/v1/platform/tenants/:id/users/:userId/password` | requerida |
+| Método   | Ruta                                                  | Sesión    |
+| -------- | ----------------------------------------------------- | --------- |
+| `GET`    | `/api/v1/platform/admins`                             | requerida |
+| `POST`   | `/api/v1/platform/admins`                             | requerida |
+| `PATCH`  | `/api/v1/platform/admins/:id`                         | requerida |
+| `GET`    | `/api/v1/platform/audit`                              | requerida |
+| `POST`   | `/api/v1/platform/login`                              | — pública |
+| `GET`    | `/api/v1/platform/me`                                 | requerida |
+| `PATCH`  | `/api/v1/platform/me`                                 | requerida |
+| `PATCH`  | `/api/v1/platform/me/password`                        | requerida |
+| `GET`    | `/api/v1/platform/metrics`                            | requerida |
+| `GET`    | `/api/v1/platform/plans`                              | requerida |
+| `PATCH`  | `/api/v1/platform/plans/:code`                        | requerida |
+| `GET`    | `/api/v1/platform/tenants`                            | requerida |
+| `GET`    | `/api/v1/platform/tenants/:id`                        | requerida |
+| `PATCH`  | `/api/v1/platform/tenants/:id`                        | requerida |
+| `DELETE` | `/api/v1/platform/tenants/:id`                        | requerida |
+| `GET`    | `/api/v1/platform/tenants/:id/cotizacion`             | requerida |
+| `GET`    | `/api/v1/platform/tenants/:id/devolucion`             | requerida |
+| `PATCH`  | `/api/v1/platform/tenants/:id/subscription`           | requerida |
+| `GET`    | `/api/v1/platform/tenants/:id/users`                  | requerida |
+| `POST`   | `/api/v1/platform/tenants/:id/users/:userId/password` | requerida |
 
 ### Registro de negocios
 
@@ -173,6 +179,7 @@ el servidor y la web, y se lee mejor que cualquier copia que hiciéramos aquí.
 | `POST`  | `/api/v1/auth/reset-password`      | — pública |
 | `GET`   | `/api/v1/auth/sessions`            | requerida |
 | `POST`  | `/api/v1/auth/sessions/revoke-all` | requerida |
+| `POST`  | `/api/v1/auth/tour-seen`           | requerida |
 | `POST`  | `/api/v1/auth/verify-email`        | — pública |
 
 ### Sucursales
