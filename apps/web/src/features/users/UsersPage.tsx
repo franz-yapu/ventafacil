@@ -6,6 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { LIMITES } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { clave, largo, requerido, todas, usuario } from '@/lib/validar';
 import { Campo, Seccion } from '@/components/ui/field';
 import { Modal } from '@/components/ui/modal';
 import { EmptyState, Page, PageHeader, SkeletonRows } from '@/components/ui/page';
@@ -245,13 +248,17 @@ function UserForm({
     onError: (e) => setError(e instanceof ApiError ? e.message : 'Error al guardar'),
   });
 
-  const passwordInvalid = form.password.length > 0 && form.password.length < 6;
-  const canSave =
-    form.name.length >= 1 &&
-    // Un vendedor sin sucursal queda con la app vacía y muda; el API también lo rechaza.
-    (form.role !== 'seller' || !!form.locationId) &&
-    (isNew ? form.username.length >= 3 && form.password.length >= 6 : !passwordInvalid) &&
-    !save.isPending;
+  const v = useValidacion(
+    {
+      name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      username: isNew ? todas(requerido('El usuario'), usuario) : () => null,
+      password: isNew ? todas(requerido('La contraseña'), clave) : clave,
+    },
+    { name: form.name, username: form.username, password: form.password },
+  );
+  // Un vendedor sin sucursal queda con la app vacía y muda; el API también lo rechaza.
+  const sinSucursal = form.role === 'seller' && !form.locationId;
+  const canSave = !save.isPending;
 
   return (
     <Modal
@@ -265,6 +272,8 @@ function UserForm({
             disabled={!canSave}
             onClick={() => {
               setError(null);
+              const ok = v.intentar();
+              if (!ok || sinSucursal) return setError('Corrige los campos marcados en rojo.');
               save.mutate();
             }}
           >
@@ -275,8 +284,9 @@ function UserForm({
     >
       <div className="flex flex-col gap-6">
         <Seccion titulo="Quién es">
-          <Campo etiqueta="Nombre completo" ayuda="Así lo verás en ventas y reportes.">
+          <Campo etiqueta="Nombre completo" ayuda="Así lo verás en ventas y reportes." error={v.ver('name')}>
             <Input
+              onBlur={() => v.tocar('name')}
               value={form.name}
               placeholder="Ej. Ana Pérez"
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -292,8 +302,10 @@ function UserForm({
                 ? 'Mínimo 3 letras, sin espacios. No se podrá cambiar después.'
                 : 'El nombre de usuario no se puede cambiar.'
             }
+            error={v.ver('username')}
           >
             <Input
+              onBlur={() => v.tocar('username')}
               value={form.username}
               disabled={!isNew}
               autoCapitalize="none"
@@ -305,7 +317,7 @@ function UserForm({
           <Campo
             etiqueta={isNew ? 'Contraseña' : 'Nueva contraseña'}
             opcional={!isNew}
-            error={passwordInvalid ? 'Mínimo 6 caracteres.' : undefined}
+            error={v.ver('password')}
             ayuda={
               isNew
                 ? 'Mínimo 6 caracteres. Al guardar te la mostramos para que se la envíes.'
@@ -315,6 +327,7 @@ function UserForm({
             <Input
               type="text"
               autoComplete="new-password"
+              onBlur={() => v.tocar('password')}
               placeholder="Mínimo 6 caracteres"
               value={form.password}
               onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -345,11 +358,7 @@ function UserForm({
           <Campo
             etiqueta="Sucursal"
             opcional={form.role !== 'seller'}
-            error={
-              form.role === 'seller' && !form.locationId
-                ? 'Elige la sucursal donde va a vender.'
-                : undefined
-            }
+            error={sinSucursal ? 'Elige la sucursal donde va a vender.' : undefined}
           >
             <Select
               value={form.locationId ?? ''}

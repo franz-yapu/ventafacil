@@ -1,3 +1,4 @@
+import { importe } from '@/features/subscription/PlanCard';
 import { ahorroPct, blockedMessage, enOferta, type EffectiveStatus } from '@ventafacil/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Lock } from 'lucide-react';
@@ -64,8 +65,8 @@ export function SubscriptionBlocked({ status }: { status: EffectiveStatus }) {
                         {p.currency} {p.regularPrice}
                       </s>
                     )}
-                    {p.currency} {p.priceMonthly}
-                    <span className="font-normal text-muted"> /mes</span>
+                    {p.currency} {importe(p.priceMonthly, 'anual')}
+                    <span className="font-normal text-muted"> /año</span>
                   </div>
                 </li>
               ))}

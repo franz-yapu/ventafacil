@@ -6,6 +6,7 @@ import {
   cotizar,
   effectiveStatus,
   isBlocked,
+  periodoPagado,
   MENSAJE_SLUG,
   SUBSCRIPTION_STATUS,
   validarSlug,
@@ -19,6 +20,7 @@ import { z } from 'zod';
 import { env } from '../env.js';
 import { enviarCorreo, urlDelNegocio } from '../lib/mailer.js';
 import { violaUnica } from '../lib/pg-errores.js';
+import { respaldarNegocio } from '../lib/respaldo-negocio.js';
 import { revocarTodo } from '../lib/sessions.js';
 import { clearAccessCache, invalidateAccess } from '../lib/subscription.js';
 
@@ -73,6 +75,8 @@ const updateSubBody = z.object({
 const listQuery = z.object({
   search: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  /** `por-vencer`: planes pagados a 15 días o menos de vencer, o ya vencidos. */
+  estado: z.enum(['por-vencer']).optional(),
 });
 
 /** Renombrar un negocio o mudarlo de subdominio. */
@@ -592,6 +596,9 @@ export async function platformRoutes(app: FastifyInstance) {
         status: schema.subscription.status,
         trialEndsAt: schema.subscription.trialEndsAt,
         currentPeriodEnd: schema.subscription.currentPeriodEnd,
+        cycleStartedAt: schema.subscription.cycleStartedAt,
+        billingMonths: schema.subscription.billingMonths,
+        billedAmount: schema.subscription.billedAmount,
         suspendedReason: schema.subscription.suspendedReason,
       })
       .from(schema.business)
@@ -610,7 +617,7 @@ export async function platformRoutes(app: FastifyInstance) {
 
     // El estado efectivo (prueba vencida) se calcula aquí, igual que en el API del
     // negocio, para que el panel muestre lo mismo que ve el cliente.
-    const data = rows.map((r) => {
+    const todos = rows.map((r) => {
       const status: EffectiveStatus | null = r.status
         ? effectiveStatus({ status: r.status, trialEndsAt: r.trialEndsAt })
         : null;
@@ -627,8 +634,14 @@ export async function platformRoutes(app: FastifyInstance) {
               currentPeriodEnd: r.currentPeriodEnd,
             })
           : null,
+        // Fase del plan pagado (por vencer / gracia / sólo lectura), calculada por el servidor.
+        periodo: r.status ? periodoPagado({ status: r.status, currentPeriodEnd: r.currentPeriodEnd }) : null,
       };
     });
+    const data =
+      q.data.estado === 'por-vencer'
+        ? todos.filter((r) => r.periodo && r.periodo.fase !== 'al_dia')
+        : todos;
 
     return reply.send({ data, error: null });
   });
@@ -695,6 +708,7 @@ export async function platformRoutes(app: FastifyInstance) {
         subscription: sub ? { ...sub, status } : null,
         blocked: status ? isBlocked(status) : false,
         vence: vencimiento(sub ?? null),
+        periodo: sub ? periodoPagado({ status: sub.status, currentPeriodEnd: sub.currentPeriodEnd }) : null,
         usage: uso,
       },
       error: null,
@@ -790,6 +804,58 @@ export async function platformRoutes(app: FastifyInstance) {
       data: { ...after, url: after!.slug ? urlDelNegocio(after!.slug) : null },
       error: null,
     });
+  });
+
+  /**
+   * Eliminar un negocio EXPIRADO (prueba vencida o cancelado), con copia previa.
+   *
+   * Sólo del principal, y sólo si ya expiró: borrar uno que paga o que está en prueba
+   * sería perder a un cliente por un clic. La copia (JSON) se escribe antes; si falla,
+   * no se borra nada. La bitácora conserva quién lo hizo y dónde quedó la copia.
+   */
+  app.delete('/platform/tenants/:id', { preHandler: app.requirePlatform }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const [biz] = await db
+      .select({ id: schema.business.id, name: schema.business.name, slug: schema.business.slug })
+      .from(schema.business)
+      .where(eq(schema.business.id, id))
+      .limit(1);
+    if (!biz) return reply.code(404).send({ data: null, error: 'Negocio no encontrado' });
+    if (!(await esPrincipal(req, reply, 'eliminar un negocio'))) return reply;
+
+    const [sub] = await db
+      .select()
+      .from(schema.subscription)
+      .where(eq(schema.subscription.businessId, id))
+      .limit(1);
+    const estado = sub ? effectiveStatus({ status: sub.status, trialEndsAt: sub.trialEndsAt }) : null;
+    if (estado !== 'trial_expired' && estado !== 'cancelled') {
+      return reply.code(409).send({
+        data: null,
+        error: 'Sólo se pueden eliminar negocios expirados (prueba vencida o cancelados)',
+      });
+    }
+
+    let respaldo;
+    try {
+      respaldo = await respaldarNegocio(id);
+    } catch (e) {
+      req.log.error({ err: e }, 'falló la copia previa al borrado');
+      return reply
+        .code(500)
+        .send({ data: null, error: 'No se pudo hacer la copia de seguridad; no se eliminó nada' });
+    }
+
+    await db.delete(schema.business).where(eq(schema.business.id, id));
+    clearAccessCache();
+    await registrar(req, {
+      action: 'tenant_delete',
+      businessId: null,
+      businessName: biz.name,
+      before: { ...biz, estado },
+      after: { copia: respaldo.archivo, filas: respaldo.filas },
+    });
+    return reply.send({ data: { eliminado: true, copia: respaldo.archivo, filas: respaldo.filas }, error: null });
   });
 
   // ── Soporte: usuarios de un negocio ──────────────────────────
@@ -1189,6 +1255,8 @@ export async function platformRoutes(app: FastifyInstance) {
           patch.billingMonths = q.meses;
           patch.billedAmount = q.total;
           patch.cycleStartedAt = desde;
+          // Periodo nuevo: vuelve a tocar el aviso de "vence pronto".
+          patch.renewalNoticeSentAt = null;
           patch.currentPeriodEnd = new Date(new Date(desde).setMonth(desde.getMonth() + q.meses));
         }
       } else if (d.planCode !== undefined && d.planCode !== before?.planCode) {
@@ -1327,6 +1395,7 @@ export async function platformRoutes(app: FastifyInstance) {
       .select({
         status: schema.subscription.status,
         trialEndsAt: schema.subscription.trialEndsAt,
+        currentPeriodEnd: schema.subscription.currentPeriodEnd,
         cancelledAt: schema.subscription.cancelledAt,
         createdAt: schema.subscription.createdAt,
         priceMonthly: sql<string>`coalesce(${schema.subscription.lockedPrice}, ${schema.plan.priceMonthly})`,
@@ -1344,8 +1413,13 @@ export async function platformRoutes(app: FastifyInstance) {
     let mrrEnRiesgo = 0;
     let altasDelMes = 0;
     let bajasDelMes = 0;
+    const fases = { porVencer: 0, enGracia: 0, soloLectura: 0 };
 
     for (const r of rows) {
+      const per = periodoPagado({ status: r.status, currentPeriodEnd: r.currentPeriodEnd });
+      if (per?.fase === 'por_vencer') fases.porVencer++;
+      if (per?.fase === 'gracia') fases.enGracia++;
+      if (per?.fase === 'solo_lectura') fases.soloLectura++;
       const status = effectiveStatus({ status: r.status, trialEndsAt: r.trialEndsAt });
       porEstado[status] = (porEstado[status] ?? 0) + 1;
       const precio = Number(r.priceMonthly);
@@ -1367,6 +1441,7 @@ export async function platformRoutes(app: FastifyInstance) {
         bajasDelMes,
         totalNegocios: totalNegocios?.n ?? 0,
         conSuscripcion: rows.length,
+        ...fases,
       },
       error: null,
     });

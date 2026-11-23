@@ -15,11 +15,13 @@ interface ModalProps {
   className?: string;
   /** Acciones fijas abajo (p. ej. «Guardar»): siempre a la vista aunque el formulario sea largo. */
   footer?: ReactNode;
+  /** Se pinta en la página, como una sección (pestaña), sin fondo ni hoja flotante. */
+  inline?: boolean;
 }
 
 // Hoja/modal calcado del prototipo VentaFácil POS: fondo translúcido con desenfoque,
 // hoja #fbfbf9 pegada abajo en móvil (radio superior) y centrada en escritorio.
-export function Modal({ open, onClose, title, children, className, footer }: ModalProps) {
+export function Modal({ open, onClose, title, children, className, footer, inline }: ModalProps) {
   const hoja = useRef<HTMLDivElement>(null);
   /**
    * `onClose` vive en una ref, y esto NO es un detalle de estilo.
@@ -51,7 +53,8 @@ export function Modal({ open, onClose, title, children, className, footer }: Mod
    * dar la vuelta al llegar al final, y devolver el foco a donde estaba al cerrar.
    */
   useEffect(() => {
-    if (!open) return;
+    // En modo página (pestaña) no hay hoja flotante: ni foco atrapado ni bloqueo de scroll.
+    if (!open || inline) return;
     const veniaDe = document.activeElement as HTMLElement | null;
 
     // Al primer campo si lo hay; si no, a la propia hoja, para que Escape funcione y el
@@ -92,9 +95,17 @@ export function Modal({ open, onClose, title, children, className, footer }: Mod
       document.body.style.overflow = overflow;
       veniaDe?.focus?.();
     };
-  }, [open]);
+  }, [open, inline]);
 
   if (!open) return null;
+  if (inline) {
+    return (
+      <section aria-label={title} className="mx-auto w-full max-w-3xl rounded-theme border border-border bg-surface">
+        <h2 className="border-b border-border px-5 py-3.5 text-[17px] font-bold">{title}</h2>
+        <div className="p-5">{children}</div>
+      </section>
+    );
+  }
   /*
     Se monta en `document.body` con un portal, NO donde se escribió.
 

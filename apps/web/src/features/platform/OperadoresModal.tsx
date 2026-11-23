@@ -4,6 +4,10 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { useValidacion } from '@/lib/useValidacion';
+import { correo, largo, requerido, todas } from '@/lib/validar';
+import { LIMITES } from '@ventafacil/shared';
 import { Modal } from '@/components/ui/modal';
 import { usePlatformAuth } from '@/features/platform/PlatformAuthProvider';
 import { platformApi } from '@/lib/api';
@@ -46,7 +50,7 @@ export function OperadoresModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <Modal open onClose={onClose} title="Operadores del panel">
+    <Modal open inline onClose={onClose} title="Operadores del panel">
       <div className="flex flex-col gap-4">
         {isLoading && <div className="text-muted">Cargando…</div>}
 
@@ -155,11 +159,18 @@ function NuevaClave({ id, onError }: { id: string; onError: (m: string) => void 
         value={clave}
         onChange={(e) => setClave(e.target.value)}
         placeholder="Mínimo 12"
+        aria-invalid={clave !== '' && clave.length < 12 ? true : undefined}
         className="h-8 w-32 text-[12px]"
       />
+      {clave !== '' && clave.length < 12 && (
+        <span role="alert" className="self-center text-[11px] text-danger">
+          Mínimo 12
+        </span>
+      )}
       <Button
         className="h-8 px-2 text-[12px]"
         disabled={clave.length < 12 || guardar.isPending}
+        title={clave.length < 12 ? 'Mínimo 12 caracteres' : undefined}
         onClick={() => guardar.mutate()}
       >
         OK
@@ -175,8 +186,16 @@ function FormularioAlta({ onListo, onCancelar }: { onListo: () => void; onCancel
   const [isOwner, setIsOwner] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const v = useValidacion(
+    {
+      name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      email: todas(requerido('El correo'), correo),
+      password: (x: string) => (x === '' ? 'La contraseña es obligatoria' : x.length < 12 ? 'Mínimo 12 caracteres' : x.length > 100 ? 'Máximo 100 caracteres' : null),
+    },
+    { name, email, password },
+  );
   const crear = useMutation({
-    mutationFn: () => platformApi.post('/platform/admins', { name, email, password, isOwner }),
+    mutationFn: () => platformApi.post('/platform/admins', { name: name.trim(), email: email.trim(), password, isOwner }),
     onSuccess: onListo,
     onError: (e: Error) => setError(e.message),
   });
@@ -184,22 +203,35 @@ function FormularioAlta({ onListo, onCancelar }: { onListo: () => void; onCancel
   return (
     <div className="flex flex-col gap-3 rounded-theme border border-border p-3">
       <div className="text-[13px] font-semibold">Nuevo operador</div>
-      <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre" />
-      <Input
-        type="email"
-        autoCapitalize="none"
-        autoCorrect="off"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        placeholder="correo@ejemplo.com"
-      />
-      <Input
-        type="password"
-        autoComplete="new-password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        placeholder="Contraseña (mínimo 12)"
-      />
+      <Campo etiqueta="Nombre" error={v.ver('name')}>
+        <Input
+          value={name}
+          onBlur={() => v.tocar('name')}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Nombre"
+        />
+      </Campo>
+      <Campo etiqueta="Correo" error={v.ver('email')}>
+        <Input
+          type="email"
+          autoCapitalize="none"
+          autoCorrect="off"
+          value={email}
+          onBlur={() => v.tocar('email')}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="correo@ejemplo.com"
+        />
+      </Campo>
+      <Campo etiqueta="Contraseña" error={v.ver('password')}>
+        <Input
+          type="password"
+          autoComplete="new-password"
+          value={password}
+          onBlur={() => v.tocar('password')}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="Contraseña (mínimo 12)"
+        />
+      </Campo>
       <label className="flex items-center gap-2 text-[13px]">
         <input
           type="checkbox"
@@ -220,8 +252,8 @@ function FormularioAlta({ onListo, onCancelar }: { onListo: () => void; onCancel
         </Button>
         <Button
           className="flex-1"
-          disabled={crear.isPending || !name || !email || password.length < 12}
-          onClick={() => crear.mutate()}
+          disabled={crear.isPending}
+          onClick={() => v.intentar() && crear.mutate()}
         >
           {crear.isPending ? 'Creando…' : 'Crear'}
         </Button>

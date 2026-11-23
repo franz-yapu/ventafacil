@@ -348,3 +348,60 @@ export function ahorroPct(p: { priceMonthly: string; regularPrice?: string | nul
   if (!enOferta(p)) return 0;
   return Math.round((1 - Number(p.priceMonthly) / Number(p.regularPrice)) * 100);
 }
+
+// ── Vencimiento del plan pagado ────────────────────────────────
+
+/** Desde cuántos días antes del fin se avisa (visual y por correo). */
+export const AVISO_DIAS = 15;
+/** Días tras el vencimiento en que aún se puede operar (con aviso molesto). Luego, sólo lectura. */
+export const GRACIA_DIAS = 7;
+
+export type FasePeriodo = 'al_dia' | 'por_vencer' | 'gracia' | 'solo_lectura';
+
+export interface PeriodoPagado {
+  fase: FasePeriodo;
+  /** Días hasta el fin (redondeado hacia arriba). Negativo = ya venció. */
+  diasRestantes: number;
+  /** Días enteros desde que venció (0 si no ha vencido). */
+  diasVencido: number;
+  /** Días de gracia que quedan antes de pasar a sólo lectura (0 si no aplica). */
+  graciaRestante: number;
+  /** Se pueden hacer acciones que modifican datos. */
+  puedeEscribir: boolean;
+}
+
+/**
+ * Estado del periodo PAGADO de un negocio. Se deduce de las fechas, sin cron: igual que
+ * `trial_expired`, un cron que no corre un día dejaría entrar gratis a todo el mundo.
+ *
+ * Sólo aplica a planes pagados (`status: 'active'` con `currentPeriodEnd`). La prueba
+ * gratis, los estados suspendidos/cancelados y el plan interno (sin fecha) devuelven
+ * `null`: tienen sus propias reglas.
+ */
+export function periodoPagado(
+  sub: { status: string; currentPeriodEnd: string | Date | null },
+  now: Date = new Date(),
+): PeriodoPagado | null {
+  if (sub.status !== 'active' || !sub.currentPeriodEnd) return null;
+  const fin = sub.currentPeriodEnd instanceof Date ? sub.currentPeriodEnd : new Date(sub.currentPeriodEnd);
+  const ms = fin.getTime() - now.getTime();
+  const diasRestantes = Math.ceil(ms / 86_400_000);
+  if (ms >= 0) {
+    return {
+      fase: diasRestantes <= AVISO_DIAS ? 'por_vencer' : 'al_dia',
+      diasRestantes,
+      diasVencido: 0,
+      graciaRestante: 0,
+      puedeEscribir: true,
+    };
+  }
+  const diasVencido = Math.floor(-ms / 86_400_000);
+  const enGracia = diasVencido < GRACIA_DIAS;
+  return {
+    fase: enGracia ? 'gracia' : 'solo_lectura',
+    diasRestantes,
+    diasVencido,
+    graciaRestante: enGracia ? GRACIA_DIAS - diasVencido : 0,
+    puedeEscribir: enGracia,
+  };
+}

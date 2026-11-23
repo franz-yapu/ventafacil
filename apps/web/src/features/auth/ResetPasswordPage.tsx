@@ -18,11 +18,18 @@ export function ResetPasswordPage() {
   const [listo, setListo] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
+  const [errs, setErrs] = useState<{ p?: string; r?: string }>({});
+  const validarCampos = (p: string, r: string) => ({
+    p: p === '' ? 'Escribe la contraseña nueva' : p.length < 8 ? 'Mínimo 8 caracteres' : p.length > 100 ? 'Máximo 100 caracteres' : undefined,
+    r: r === '' ? 'Repite la contraseña' : r !== p ? 'Las contraseñas no coinciden' : undefined,
+  });
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) return setError('La contraseña debe tener al menos 8 caracteres');
-    if (password !== repetir) return setError('Las contraseñas no coinciden');
+    const f = validarCampos(password, repetir);
+    setErrs(f);
+    if (f.p || f.r) return;
 
     setEnviando(true);
     try {
@@ -80,6 +87,8 @@ export function ResetPasswordPage() {
               autoFocus
               autoComplete="new-password"
               value={password}
+              aria-invalid={errs.p ? true : undefined}
+              onBlur={() => setErrs(validarCampos(password, repetir))}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Mínimo 8 caracteres"
             />
@@ -92,6 +101,7 @@ export function ResetPasswordPage() {
               {ver ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
+          {errs.p && <p role="alert" className="mt-1 text-xs text-danger">{errs.p}</p>}
         </div>
 
         <div>
@@ -103,9 +113,12 @@ export function ResetPasswordPage() {
             type={ver ? 'text' : 'password'}
             autoComplete="new-password"
             value={repetir}
+            aria-invalid={errs.r ? true : undefined}
+            onBlur={() => setErrs(validarCampos(password, repetir))}
             onChange={(e) => setRepetir(e.target.value)}
             placeholder="La misma otra vez"
           />
+          {errs.r && <p role="alert" className="mt-1 text-xs text-danger">{errs.r}</p>}
         </div>
 
         {error && (

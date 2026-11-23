@@ -5,6 +5,9 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { useValidacion } from '@/lib/useValidacion';
+import { entero, importe, largo, requerido, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { platformApi } from '@/lib/api';
 
@@ -36,7 +39,7 @@ export function PlanesModal({ onClose }: { onClose: () => void }) {
   });
 
   return (
-    <Modal open onClose={onClose} title="Planes y precios">
+    <Modal open inline onClose={onClose} title="Planes y precios">
       <div className="flex flex-col gap-4">
         <p className="text-[13px] text-muted">
           Los cambios de precio y de oferta solo aplican a quien contrate desde ahora: los negocios
@@ -66,6 +69,22 @@ function PlanForm({ plan }: { plan: PlanFila }) {
   const vista = { priceMonthly: precio, regularPrice: lista || null };
   const oferta = enOferta(vista);
 
+  const v = useValidacion(
+    {
+      precio: todas(requerido('El precio'), importe({ max: 99999.99, permiteCero: false })),
+      lista: todas(importe({ max: 99999.99 }), (x) =>
+        x.trim() !== '' && Number(x.replace(',', '.')) <= Number(precio.replace(',', '.'))
+          ? 'Debe ser mayor que el precio que se cobra'
+          : null,
+      ),
+      rotulo: largo(0, 40),
+      sucursales: entero({ max: 9999 }),
+      usuarios: entero({ max: 9999 }),
+      productos: entero({ max: 999999 }),
+    },
+    { precio, lista, rotulo, sucursales, usuarios, productos },
+  );
+
   const guardar = useMutation({
     mutationFn: () =>
       platformApi.patch(`/platform/plans/${plan.code}`, {
@@ -86,7 +105,6 @@ function PlanForm({ plan }: { plan: PlanFila }) {
     onError: (e: Error) => setError(e.message),
   });
 
-  const campo = 'flex flex-col gap-1 text-[12px] font-semibold text-muted';
 
   return (
     <form
@@ -94,6 +112,7 @@ function PlanForm({ plan }: { plan: PlanFila }) {
       onSubmit={(e) => {
         e.preventDefault();
         setGuardado(false);
+        if (!v.intentar()) return;
         guardar.mutate();
       }}
     >
@@ -111,55 +130,54 @@ function PlanForm({ plan }: { plan: PlanFila }) {
       </div>
 
       <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3">
-        <label className={campo}>
-          Precio que se cobra ({plan.currency}/mes)
-          <Input inputMode="decimal" value={precio} onChange={(e) => setPrecio(e.target.value)} />
-        </label>
-        <label className={campo}>
-          Precio de lista (tachado)
+        <Campo etiqueta={`Precio mensual base (${plan.currency}/mes; se muestra x12 al año)`} error={v.ver('precio')}>
+          <Input inputMode="decimal" value={precio} onBlur={() => v.tocar('precio')} onChange={(e) => setPrecio(e.target.value)} />
+        </Campo>
+        <Campo etiqueta="Precio de lista (tachado)" opcional error={v.ver('lista')}>
           <Input
             inputMode="decimal"
             value={lista}
             placeholder="sin oferta"
+            onBlur={() => v.tocar('lista')}
             onChange={(e) => setLista(e.target.value)}
           />
-        </label>
-        <label className={`${campo} col-span-2 sm:col-span-3`}>
-          Rótulo de la oferta
+        </Campo>
+        <Campo etiqueta="Rótulo de la oferta" opcional className="col-span-2 sm:col-span-3" error={v.ver('rotulo')}>
           <Input
             value={rotulo}
             maxLength={40}
             placeholder="Oferta de este mes"
+            onBlur={() => v.tocar('rotulo')}
             onChange={(e) => setRotulo(e.target.value)}
           />
-        </label>
-        <label className={campo}>
-          Sucursales
+        </Campo>
+        <Campo etiqueta="Sucursales" opcional error={v.ver('sucursales')}>
           <Input
             inputMode="numeric"
             value={sucursales}
             placeholder="sin límite"
+            onBlur={() => v.tocar('sucursales')}
             onChange={(e) => setSucursales(e.target.value)}
           />
-        </label>
-        <label className={campo}>
-          Usuarios
+        </Campo>
+        <Campo etiqueta="Usuarios" opcional error={v.ver('usuarios')}>
           <Input
             inputMode="numeric"
             value={usuarios}
             placeholder="sin límite"
+            onBlur={() => v.tocar('usuarios')}
             onChange={(e) => setUsuarios(e.target.value)}
           />
-        </label>
-        <label className={campo}>
-          Productos
+        </Campo>
+        <Campo etiqueta="Productos" opcional error={v.ver('productos')}>
           <Input
             inputMode="numeric"
             value={productos}
             placeholder="sin límite"
+            onBlur={() => v.tocar('productos')}
             onChange={(e) => setProductos(e.target.value)}
           />
-        </label>
+        </Campo>
       </div>
 
       <div className="mt-3 flex items-center justify-between gap-3">

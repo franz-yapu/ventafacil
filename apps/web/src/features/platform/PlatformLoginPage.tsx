@@ -20,9 +20,17 @@ export function PlatformLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
+  const [faltan, setFaltan] = useState<{ e?: string; p?: string }>({});
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const f = {
+      e: email.trim() ? undefined : 'Escribe tu correo',
+      p: password ? undefined : 'Escribe tu contraseña',
+    };
+    setFaltan(f);
+    if (f.e || f.p) return;
     setEnviando(true);
     try {
       await login(email, password);
@@ -77,7 +85,7 @@ export function PlatformLoginPage() {
           <h1 className="auth-display text-[38px] leading-[1.05]">Plataforma</h1>
           <p className="mb-6 mt-2 text-[15px] text-muted">Administración de todos los negocios</p>
         </div>
-        <form onSubmit={onSubmit} className="flex flex-col gap-4">
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <div>
             <label className="mb-1.5 block text-[13px] font-semibold" htmlFor="pf-email">
               Correo del operador
@@ -89,9 +97,13 @@ export function PlatformLoginPage() {
               autoComplete="username"
               placeholder="operador@tudominio.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              aria-invalid={faltan.e ? true : undefined}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setFaltan((f) => ({ ...f, e: undefined }));
+              }}
             />
+            {faltan.e && <p role="alert" className="mt-1 text-xs text-danger">{faltan.e}</p>}
           </div>
 
           <div>
@@ -104,9 +116,13 @@ export function PlatformLoginPage() {
               autoComplete="current-password"
               placeholder="••••••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              aria-invalid={faltan.p ? true : undefined}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setFaltan((f) => ({ ...f, p: undefined }));
+              }}
             />
+            {faltan.p && <p role="alert" className="mt-1 text-xs text-danger">{faltan.p}</p>}
           </div>
 
           {error && (

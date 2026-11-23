@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { AuthShell } from '@/components/AuthShell';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { correo, requerido, todas } from '@/lib/validar';
 import { slugDesdeHostname } from '@/features/auth/AuthProvider';
 import { api } from '@/lib/api';
 
@@ -19,8 +20,13 @@ export function ForgotPasswordPage() {
   const [enviado, setEnviado] = useState(false);
   const [enviando, setEnviando] = useState(false);
 
+  const [errorCorreo, setErrorCorreo] = useState<string | null>(null);
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
+    const fallo = todas(requerido('El correo'), correo)(email);
+    setErrorCorreo(fallo);
+    if (fallo) return;
     setEnviando(true);
     const business =
       slugDesdeHostname(window.location.hostname, import.meta.env.VITE_APP_DOMAIN) ||
@@ -72,7 +78,7 @@ export function ForgotPasswordPage() {
       descripcion="Recupera el acceso a tu cuenta"
       pie={volver}
     >
-      <form onSubmit={onSubmit} className="flex flex-col gap-4">
+      <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <div>
           <label htmlFor="correo" className="mb-1.5 block text-[13px] font-semibold">
             Tu correo
@@ -85,10 +91,19 @@ export function ForgotPasswordPage() {
             autoCorrect="off"
             autoComplete="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            aria-invalid={errorCorreo ? true : undefined}
+            onBlur={() => setErrorCorreo(todas(requerido('El correo'), correo)(email))}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (errorCorreo) setErrorCorreo(null);
+            }}
             placeholder="tu@correo.com"
-            required
           />
+          {errorCorreo && (
+            <p role="alert" className="mt-1 text-xs text-danger">
+              {errorCorreo}
+            </p>
+          )}
           <p className="mt-1.5 text-[12px] text-muted">
             Te enviamos un enlace para cambiarla. Si no tienes correo registrado, pídele a un
             administrador de tu negocio que te dé una contraseña nueva.

@@ -180,6 +180,7 @@ export const platformApi = {
     platformRequest<T>(path, { method: 'POST', body: body ? JSON.stringify(body) : undefined }),
   patch: <T>(path: string, body?: unknown) =>
     platformRequest<T>(path, { method: 'PATCH', body: body ? JSON.stringify(body) : undefined }),
+  del: <T>(path: string) => platformRequest<T>(path, { method: 'DELETE' }),
 };
 
 export const api = {

@@ -23,6 +23,10 @@ import { Button } from '@/components/ui/button';
 import { Miniatura } from '@/features/products/FotoDeProducto';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { LIMITES } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { largo, requerido, telefono, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -142,8 +146,16 @@ export function PosPage() {
    */
   const topePct = user?.role === 'seller' ? (business?.maxSellerDiscountPct ?? 0) : 100;
   const topeDescuento = (subtotal * topePct) / 100;
-  const pedido = Math.max(0, Number(discount) || 0);
+  const pedido = Math.max(0, Number(discount.replace(',', '.')) || 0);
   const discountNum = Math.min(pedido, subtotal, topeDescuento);
+  const errorDescuento = (() => {
+    const t = discount.trim();
+    if (t === '' || t === '0') return null;
+    if (t.startsWith('-')) return 'El descuento no puede ser negativo';
+    if (!/^\d+([.,]\d{1,2})?$/.test(t)) return 'Usa solo números, hasta 2 decimales';
+    if (Number(t.replace(',', '.')) > subtotal) return 'No puede superar el subtotal';
+    return null;
+  })();
   const descuentoRecortado = pedido > topeDescuento + 0.005;
   const total = subtotal - discountNum;
 
@@ -406,7 +418,7 @@ export function PosPage() {
     // ejecutar en cuanto algo lanzara por encima.
   }
 
-  const canCheckout = cart.length > 0 && !!activeLocation && !busy;
+  const canCheckout = cart.length > 0 && !!activeLocation && !busy && !errorDescuento;
 
   /**
    * La regla de cuándo se pregunta vive en `confirmar.ts`, fuera del componente.
@@ -746,6 +758,7 @@ export function PosPage() {
                 inputMode="decimal"
                 value={online ? discount : '0'}
                 disabled={!online}
+                aria-invalid={errorDescuento ? true : undefined}
                 onChange={(e) => setDiscount(e.target.value)}
                 className="h-9 w-28 text-right"
                 title={online ? '' : 'Los descuentos requieren conexión'}
@@ -753,6 +766,11 @@ export function PosPage() {
             </div>
           )}
 
+          {errorDescuento && (
+            <p role="alert" className="text-[12px] text-danger">
+              {errorDescuento}
+            </p>
+          )}
           {descuentoRecortado && (
             <p className="text-[12px] text-warning">
               Como vendedor puedes descontar hasta el {topePct}% ({money(topeDescuento)}). Para más,
@@ -885,6 +903,10 @@ function NewCustomerModal({
   const qc = useQueryClient();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const vc = useValidacion(
+    { name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)), phone: telefono },
+    { name, phone },
+  );
   const create = useMutation({
     mutationFn: () =>
       api.post<Customer>('/customers', { name: name.trim(), phone: phone.trim() || null }),
@@ -896,13 +918,15 @@ function NewCustomerModal({
   return (
     <Modal open onClose={onClose} title="Nuevo cliente">
       <div className="flex flex-col gap-3">
-        <label className="text-sm text-muted">Nombre</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-        <label className="text-sm text-muted">Teléfono (opcional)</label>
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <Campo etiqueta="Nombre" error={vc.ver('name')}>
+          <Input value={name} onBlur={() => vc.tocar('name')} onChange={(e) => setName(e.target.value)} autoFocus />
+        </Campo>
+        <Campo etiqueta="Teléfono" opcional error={vc.ver('phone')}>
+          <Input value={phone} onBlur={() => vc.tocar('phone')} onChange={(e) => setPhone(e.target.value)} />
+        </Campo>
         <Button
-          disabled={name.trim().length < 1 || create.isPending}
-          onClick={() => create.mutate()}
+          disabled={create.isPending}
+          onClick={() => vc.intentar() && create.mutate()}
         >
           {create.isPending ? 'Guardando…' : 'Guardar'}
         </Button>

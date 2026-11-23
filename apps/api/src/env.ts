@@ -317,6 +317,8 @@ export const env = {
    * Cualquier otro deja los enlaces de los correos —verificar la cuenta, restablecer
    * la contraseña— apuntando a un puerto donde no hay nada.
    */
+  /** Dominio base de las direcciones de los negocios (para la nota del alta). */
+  appDomain: process.env.APP_DOMAIN ?? 'localhost',
   appUrlTemplate: process.env.APP_URL_TEMPLATE ?? 'http://{slug}.localhost:5173',
 
   // ── Avisos de operación ──────────────────────────────────────

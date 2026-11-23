@@ -25,6 +25,7 @@ export async function subscriptionRoutes(app: FastifyInstance) {
         trialEndsAt: access.subscription?.trialEndsAt ?? null,
         trialDaysLeft: trialDaysLeft(access.subscription?.trialEndsAt),
         currentPeriodEnd: access.subscription?.currentPeriodEnd ?? null,
+        periodo: access.periodo,
         features: access.plan?.features ?? null,
         usage,
       },

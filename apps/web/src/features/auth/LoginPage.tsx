@@ -60,9 +60,18 @@ export function LoginPage() {
   // negocio sería ruido. Aparece cuando el API avisa de que hace falta.
   const [needsBusiness, setNeedsBusiness] = useState(false);
 
+  const [faltan, setFaltan] = useState<{ u?: string; p?: string; b?: string }>({});
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const f = {
+      u: username.trim() ? undefined : 'Escribe tu usuario',
+      p: password ? undefined : 'Escribe tu contraseña',
+      b: needsBusiness && !business.trim() ? 'Escribe el código del negocio' : undefined,
+    };
+    setFaltan(f);
+    if (f.u || f.p || f.b) return;
     setBusy(true);
     try {
       await login(username, password, business);
@@ -153,8 +162,13 @@ export function LoginPage() {
             spellCheck={false}
             autoComplete="username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            aria-invalid={faltan.u ? true : undefined}
+            onChange={(e) => {
+              setUsername(e.target.value);
+              setFaltan((f) => ({ ...f, u: undefined }));
+            }}
           />
+          {faltan.u && <p role="alert" className="mt-1 text-xs text-danger">{faltan.u}</p>}
 
           <div className="mb-[7px] mt-4 flex items-baseline justify-between">
             <label htmlFor="clave" className="text-[13px] font-semibold">
@@ -182,7 +196,11 @@ export function LoginPage() {
               )}
               autoComplete="current-password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              aria-invalid={faltan.p ? true : undefined}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setFaltan((f) => ({ ...f, p: undefined }));
+              }}
             />
             <button
               type="button"
@@ -193,6 +211,7 @@ export function LoginPage() {
               {showPassword ? 'Ocultar' : 'Ver'}
             </button>
           </div>
+          {faltan.p && <p role="alert" className="mt-1 text-xs text-danger">{faltan.p}</p>}
 
           {needsBusiness && (
             <div className="mt-4">
@@ -207,8 +226,13 @@ export function LoginPage() {
                 autoCorrect="off"
                 spellCheck={false}
                 value={business}
-                onChange={(e) => setBusiness(e.target.value)}
+                aria-invalid={faltan.b ? true : undefined}
+                onChange={(e) => {
+                  setBusiness(e.target.value);
+                  setFaltan((f) => ({ ...f, b: undefined }));
+                }}
               />
+              {faltan.b && <p role="alert" className="mt-1 text-xs text-danger">{faltan.b}</p>}
               <p className="mt-1 text-[12px] text-muted">
                 Esta instalación atiende a varios negocios. Escribe el código del tuyo.
               </p>

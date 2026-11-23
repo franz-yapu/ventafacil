@@ -2,7 +2,7 @@ import { LIMIT_LABELS, type LimitKey } from '@ventafacil/shared';
 import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
-import { PlanCard, type Periodo } from '@/features/subscription/PlanCard';
+import { importe, PlanCard, type Periodo } from '@/features/subscription/PlanCard';
 import { Page, PageHeader } from '@/components/ui/page';
 import type { PlanInfo } from '@/features/subscription/SubscriptionProvider';
 import { useSubscription } from '@/features/subscription/SubscriptionProvider';
@@ -76,8 +76,8 @@ export function SubscriptionPage() {
                 </div>
                 <div className="text-right">
                   <div className="font-bold">
-                    {sub.plan.currency} {sub.plan.priceMonthly}
-                    <span className="font-normal text-muted"> /mes</span>
+                    {sub.plan.currency} {importe(sub.plan.priceMonthly, 'anual')}
+                    <span className="font-normal text-muted"> /año</span>
                   </div>
                   <div className="text-[13px] text-muted">
                     {ETIQUETA_ESTADO[sub.status ?? ''] ?? sub.status}

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { History, Package, Pencil, Plus, Search } from 'lucide-react';
+import { History, Package, Pencil, Plus, RotateCcw, Search, Trash2, Archive } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Exportar } from '@/components/Exportar';
@@ -13,7 +13,9 @@ import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { HistoryModal } from '@/features/inventory/HistoryModal';
+import { LIMITES } from '@ventafacil/shared';
 import { api, ApiError } from '@/lib/api';
+import { entero, importe, largo, requerido, todas, validar } from '@/lib/validar';
 import { money } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { ImagenLista } from '@/lib/imagen';
@@ -27,6 +29,8 @@ export function ProductsPage() {
   const business = useBusiness();
   const [search, setSearch] = useState('');
   const [locationId, setLocationId] = useState('');
+  const [estado, setEstado] = useState<'activos' | 'baja'>('activos');
+  const [aviso, setAviso] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null | 'new'>(null);
   const [history, setHistory] = useState<{ id: string; name: string } | null>(null);
   const isAdmin = user?.role === 'admin';
@@ -55,18 +59,44 @@ export function ProductsPage() {
   const params = new URLSearchParams();
   if (search) params.set('search', search);
   if (locationId) params.set('locationId', locationId);
+  if (estado === 'baja') params.set('estado', 'baja');
   const qs = params.toString();
   const { items, total, hasNextPage, fetchNextPage, isFetchingNextPage, isLoading } =
     useInfiniteList<Product>(
-      ['products', 'admin', search, locationId],
+      ['products', 'admin', search, locationId, estado],
       `/products${qs ? `?${qs}` : ''}`,
     );
-  const reload = () => qc.invalidateQueries({ queryKey: ['products'] });
+  const reload = () => {
+    qc.invalidateQueries({ queryKey: ['products'] });
+    qc.invalidateQueries({ queryKey: ['inventory'] });
+  };
+
+  /** Baja, reactivación o eliminación de un producto. Todas piden confirmación. */
+  async function gestionar(p: Product, que: 'baja' | 'reactivar' | 'eliminar') {
+    setAviso(null);
+    const pregunta = {
+      baja: `¿Dar de baja "${p.name}"? Deja de salir en ventas e inventario, pero conserva su historial. Se puede reactivar.`,
+      reactivar: `¿Reactivar "${p.name}"? Volverá a salir en ventas e inventario.`,
+      eliminar: `¿Eliminar "${p.name}" para siempre? Solo se puede si no tiene ventas ni stock.`,
+    }[que];
+    if (!window.confirm(pregunta)) return;
+    try {
+      if (que === 'eliminar') await api.del(`/products/${p.id}`);
+      else await api.patch(`/products/${p.id}`, { isActive: que === 'reactivar' });
+      reload();
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : (e as Error).message;
+      setAviso(msg);
+      if (que === 'eliminar' && p.isActive && window.confirm(`${msg}\n\n¿Darlo de baja ahora?`)) {
+        await gestionar(p, 'baja').catch(() => undefined);
+      }
+    }
+  }
 
   // Vacío por filtro y vacío de verdad no son lo mismo: uno se arregla borrando la
   // búsqueda y el otro dando de alta un producto. Decir lo mismo en los dos casos deja
   // a la persona buscando un botón que no le sirve.
-  const filtrando = !!search || !!locationId;
+  const filtrando = !!search || !!locationId || estado === 'baja';
   const vacio = !isLoading && items.length === 0;
 
   return (
@@ -108,6 +138,18 @@ export function ProductsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {isAdmin && (
+          <Select
+            filter
+            className="max-w-[180px]"
+            aria-label="Estado"
+            value={estado}
+            onChange={(e) => setEstado(e.target.value as 'activos' | 'baja')}
+          >
+            <option value="activos">Activos</option>
+            <option value="baja">Dados de baja</option>
+          </Select>
+        )}
         {isCentral && (
           <Select
             filter
@@ -124,6 +166,12 @@ export function ProductsPage() {
           </Select>
         )}
       </div>
+
+      {aviso && (
+        <p role="alert" className="rounded-theme border border-danger/40 bg-danger/[0.05] p-3 text-sm text-danger">
+          {aviso}
+        </p>
+      )}
 
       {isLoading && (
         <Card>
@@ -219,6 +267,26 @@ export function ProductsPage() {
                           <Pencil size={16} />
                         </button>
                       )}
+                      {p.canManage && isAdmin && (
+                        <>
+                          <button
+                            onClick={() => gestionar(p, p.isActive ? 'baja' : 'reactivar')}
+                            className="text-muted hover:text-primary"
+                            title={p.isActive ? 'Dar de baja' : 'Reactivar'}
+                            aria-label={`${p.isActive ? 'Dar de baja' : 'Reactivar'} ${p.name}`}
+                          >
+                            {p.isActive ? <Archive size={16} /> : <RotateCcw size={16} />}
+                          </button>
+                          <button
+                            onClick={() => gestionar(p, 'eliminar')}
+                            className="text-muted hover:text-danger"
+                            title="Eliminar"
+                            aria-label={`Eliminar ${p.name}`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -270,6 +338,24 @@ export function ProductsPage() {
                   className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[11px] border border-field bg-surface text-[13px] font-semibold"
                 >
                   <Pencil size={16} /> Editar
+                </button>
+              )}
+              {p.canManage && isAdmin && (
+                <button
+                  onClick={() => gestionar(p, p.isActive ? 'baja' : 'reactivar')}
+                  className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[11px] border border-field bg-surface text-[13px] font-semibold"
+                >
+                  {p.isActive ? <Archive size={16} /> : <RotateCcw size={16} />}
+                  {p.isActive ? 'Baja' : 'Reactivar'}
+                </button>
+              )}
+              {p.canManage && isAdmin && (
+                <button
+                  onClick={() => gestionar(p, 'eliminar')}
+                  aria-label={`Eliminar ${p.name}`}
+                  className="flex h-11 w-11 items-center justify-center rounded-[11px] border border-field bg-surface text-danger"
+                >
+                  <Trash2 size={16} />
                 </button>
               )}
             </div>
@@ -340,6 +426,39 @@ function ProductForm({
     minStock: '',
   });
   const [error, setError] = useState<string | null>(null);
+  // Un campo muestra su error al salir de él, o todos al intentar guardar.
+  const [tocados, setTocados] = useState<Set<string>>(new Set());
+  const [intentado, setIntentado] = useState(false);
+  const errores: Record<string, string | undefined> = {
+    ...validar(
+      {
+        name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+        description: largo(0, LIMITES.descripcionMax),
+        price: todas(requerido('El precio de venta'), importe({ permiteCero: false })),
+        cost: importe(),
+        costWholesale: importe(),
+        initialStock: entero(),
+        minStock: entero(),
+      },
+      {
+        name: form.name,
+        description: form.description,
+        price: form.price,
+        cost: form.cost,
+        costWholesale: form.costWholesale,
+        initialStock: form.initialStock,
+        minStock: form.minStock,
+      },
+    ),
+  };
+  for (const f of schema) {
+    const v = String(form.attributes[f.key] ?? '');
+    if (f.required && v.trim() === '') errores[`attr:${f.key}`] = `${f.label} es obligatorio`;
+    else if (v.length > LIMITES.nombreMax) errores[`attr:${f.key}`] = `Máximo ${LIMITES.nombreMax} caracteres`;
+  }
+  const ver = (k: string) => (intentado || tocados.has(k) ? errores[k] : undefined);
+  const tocar = (k: string) => setTocados((t) => new Set(t).add(k));
+  const hayErrores = Object.keys(errores).length > 0;
   const [foto, setFoto] = useState<ImagenLista | null>(null);
   const [quitarFoto, setQuitarFoto] = useState(false);
 
@@ -423,7 +542,18 @@ function ProductForm({
       footer={
         <div className="flex flex-col gap-2">
           {error && <p className="text-sm text-danger">{error}</p>}
-          <Button onClick={() => save.mutate()} disabled={save.isPending}>
+          <Button
+            onClick={() => {
+              setIntentado(true);
+              setError(null);
+              if (hayErrores) {
+                setError('Corrige los campos marcados en rojo.');
+                return;
+              }
+              save.mutate();
+            }}
+            disabled={save.isPending}
+          >
             {save.isPending ? 'Guardando…' : 'Guardar'}
           </Button>
         </div>
@@ -431,8 +561,10 @@ function ProductForm({
     >
       <div className="flex flex-col gap-6">
         <Seccion titulo="Producto">
-          <Campo etiqueta="Nombre" ayuda="Como lo busca y lo reconoce quien vende.">
+          <Campo etiqueta="Nombre" ayuda="Como lo busca y lo reconoce quien vende." error={ver('name')}>
             <Input
+              maxLength={LIMITES.nombreMax + 20}
+              onBlur={() => tocar('name')}
               value={form.name}
               placeholder="Ej. Llanta 175/70R13"
               onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -466,12 +598,13 @@ function ProductForm({
               </Select>
             </Campo>
           )}
-          <Campo etiqueta="Descripción" opcional ayuda="Talla, color, sabor, medida… lo que lo distingue de otro parecido.">
+          <Campo etiqueta="Descripción" opcional ayuda="Talla, color, sabor, medida… lo que lo distingue de otro parecido." error={ver('description')}>
             <textarea
               rows={3}
+              onBlur={() => tocar('description')}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="ds-field w-full resize-y rounded-theme border border-field bg-surface px-3 py-2 text-base"
+              className="ds-field w-full resize-y rounded-theme border border-field bg-surface px-3 py-2 text-base aria-[invalid=true]:border-danger"
             />
           </Campo>
           <FotoDeProducto
@@ -484,8 +617,9 @@ function ProductForm({
         </Seccion>
 
         <Seccion titulo="Precios">
-          <Campo etiqueta="Precio de venta" ayuda="Lo que paga el cliente, en bolivianos.">
+          <Campo etiqueta="Precio de venta" ayuda={`Lo que paga el cliente, en bolivianos (máx. ${LIMITES.importeMax}).`} error={ver('price')}>
             <Input
+              onBlur={() => tocar('price')}
               inputMode="decimal"
               placeholder="0.00"
               value={form.price}
@@ -493,16 +627,18 @@ function ProductForm({
             />
           </Campo>
           <div className="grid grid-cols-2 gap-3">
-            <Campo etiqueta="Costo unitario" opcional>
+            <Campo etiqueta="Costo unitario" opcional error={ver('cost')}>
               <Input
+                onBlur={() => tocar('cost')}
                 inputMode="decimal"
                 placeholder="0.00"
                 value={form.cost}
                 onChange={(e) => setForm({ ...form, cost: e.target.value })}
               />
             </Campo>
-            <Campo etiqueta="Costo por mayor" opcional>
+            <Campo etiqueta="Costo por mayor" opcional error={ver('costWholesale')}>
               <Input
+                onBlur={() => tocar('costWholesale')}
                 inputMode="decimal"
                 placeholder="0.00"
                 value={form.costWholesale}
@@ -523,16 +659,18 @@ function ProductForm({
         {isNew && (
           <Seccion titulo="Stock">
             <div className="grid grid-cols-2 gap-3">
-              <Campo etiqueta="Stock inicial" ayuda="Cuántas unidades hay hoy.">
+              <Campo etiqueta="Stock inicial" ayuda="Cuántas unidades hay hoy." error={ver('initialStock')}>
                 <Input
+                  onBlur={() => tocar('initialStock')}
                   inputMode="numeric"
                   placeholder="0"
                   value={form.initialStock}
                   onChange={(e) => setForm({ ...form, initialStock: e.target.value })}
                 />
               </Campo>
-              <Campo etiqueta="Stock mínimo" ayuda="Te avisamos al llegar a esta cantidad.">
+              <Campo etiqueta="Stock mínimo" ayuda="Te avisamos al llegar a esta cantidad." error={ver('minStock')}>
                 <Input
+                  onBlur={() => tocar('minStock')}
                   inputMode="numeric"
                   placeholder="0"
                   value={form.minStock}
@@ -546,8 +684,9 @@ function ProductForm({
         {schema.length > 0 && (
           <Seccion titulo="Detalles del rubro">
             {schema.map((f) => (
-              <Campo key={f.key} etiqueta={f.label} opcional={!f.required}>
+              <Campo key={f.key} etiqueta={f.label} opcional={!f.required} error={ver(`attr:${f.key}`)}>
                 <Input
+                  onBlur={() => tocar(`attr:${f.key}`)}
                   value={String(form.attributes[f.key] ?? '')}
                   onChange={(e) =>
                     setForm({

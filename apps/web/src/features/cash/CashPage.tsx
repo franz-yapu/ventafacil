@@ -7,6 +7,9 @@ import { Button } from '@/components/ui/button';
 import { Exportar } from '@/components/Exportar';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { useValidacion } from '@/lib/useValidacion';
+import { importe, largo, requerido, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { Page, PageHeader } from '@/components/ui/page';
 import { Select } from '@/components/ui/select';
@@ -283,8 +286,12 @@ function ModalAbrir({ onClose, onOk }: { onClose: () => void; onOk: () => void }
   const [monto, setMonto] = useState('0.00');
   const [error, setError] = useState<string | null>(null);
 
+  const v = useValidacion(
+    { monto: todas(requerido('El monto'), importe({ max: 999999.99 })) },
+    { monto },
+  );
   const abrir = useMutation({
-    mutationFn: () => api.post('/cash/open', { openingAmount: monto }),
+    mutationFn: () => api.post('/cash/open', { openingAmount: monto.replace(',', '.') }),
     onSuccess: () => {
       onOk();
       onClose();
@@ -295,16 +302,16 @@ function ModalAbrir({ onClose, onOk }: { onClose: () => void; onOk: () => void }
   return (
     <Modal open onClose={onClose} title="Abrir caja">
       <div className="flex flex-col gap-3">
-        <div>
-          <label className="mb-1 block text-[13px] font-semibold">Efectivo en el cajón ahora</label>
+        <Campo etiqueta="Efectivo en el cajón ahora" error={v.ver('monto')}>
           <Input
-            type="number"
-            step="0.01"
-            min="0"
+            inputMode="decimal"
             autoFocus
             value={monto}
+            onBlur={() => v.tocar('monto')}
             onChange={(e) => setMonto(e.target.value)}
           />
+        </Campo>
+        <div>
           <p className="mt-1 text-[12px] text-muted">
             Cuenta lo que hay antes de empezar. Si arrancas sin nada, deja 0.
           </p>
@@ -314,7 +321,11 @@ function ModalAbrir({ onClose, onOk }: { onClose: () => void; onOk: () => void }
           <Button variant="outline" className="flex-1" onClick={onClose}>
             Cancelar
           </Button>
-          <Button className="flex-1" disabled={abrir.isPending} onClick={() => abrir.mutate()}>
+          <Button
+            className="flex-1"
+            disabled={abrir.isPending}
+            onClick={() => v.intentar() && abrir.mutate()}
+          >
             {abrir.isPending ? 'Abriendo…' : 'Abrir'}
           </Button>
         </div>
@@ -338,12 +349,19 @@ function ModalCerrar({
 
   // La diferencia se enseña MIENTRAS se teclea, antes de confirmar: es el momento en
   // que la persona todavía puede volver a contar.
-  const diferencia = contado === '' ? null : Number(contado) - Number(esperado);
+  const diferencia = contado === '' ? null : Number(contado.replace(',', '.')) - Number(esperado);
+  const v = useValidacion(
+    {
+      contado: todas(requerido('El monto contado'), importe({ max: 999999.99 })),
+      notas: largo(0, 300),
+    },
+    { contado, notas },
+  );
 
   const cerrar = useMutation({
     mutationFn: () =>
       api.post('/cash/close', {
-        countedAmount: Number(contado).toFixed(2),
+        countedAmount: Number(contado.replace(',', '.')).toFixed(2),
         notes: notas || undefined,
       }),
     onSuccess: () => {
@@ -361,17 +379,17 @@ function ModalCerrar({
           <span className="text-lg font-bold">{money(esperado)}</span>
         </div>
 
-        <div>
-          <label className="mb-1 block text-[13px] font-semibold">Cuánto contaste</label>
+        <Campo etiqueta="Cuánto contaste" error={v.ver('contado')}>
           <Input
-            type="number"
-            step="0.01"
-            min="0"
+            inputMode="decimal"
             autoFocus
             value={contado}
+            onBlur={() => v.tocar('contado')}
             onChange={(e) => setContado(e.target.value)}
             placeholder="0.00"
           />
+        </Campo>
+        <div>
         </div>
 
         {diferencia !== null && (
@@ -393,16 +411,14 @@ function ModalCerrar({
         )}
 
         {diferencia !== null && diferencia !== 0 && (
-          <div>
-            <label className="mb-1 block text-[13px] font-semibold">
-              ¿Por qué? (queda registrado)
-            </label>
+          <Campo etiqueta="¿Por qué? (queda registrado)" opcional error={v.ver('notas')}>
             <Input
               value={notas}
+              onBlur={() => v.tocar('notas')}
               onChange={(e) => setNotas(e.target.value)}
               placeholder="Se pagó al proveedor sin anotarlo…"
             />
-          </div>
+          </Campo>
         )}
 
         {error && <p className="text-[13px] text-danger">{error}</p>}
@@ -413,8 +429,8 @@ function ModalCerrar({
           </Button>
           <Button
             className="flex-1"
-            disabled={contado === '' || cerrar.isPending}
-            onClick={() => cerrar.mutate()}
+            disabled={cerrar.isPending}
+            onClick={() => v.intentar() && cerrar.mutate()}
           >
             {cerrar.isPending ? 'Cerrando…' : 'Cerrar turno'}
           </Button>
@@ -430,9 +446,20 @@ function ModalMovimiento({ onClose, onOk }: { onClose: () => void; onOk: () => v
   const [motivo, setMotivo] = useState('');
   const [error, setError] = useState<string | null>(null);
 
+  const v = useValidacion(
+    {
+      monto: todas(requerido('El monto'), importe({ max: 999999.99, permiteCero: false })),
+      motivo: todas(requerido('El motivo'), (x) => (x.trim().length < 3 ? 'Mínimo 3 caracteres' : null), largo(3, 200)),
+    },
+    { monto, motivo },
+  );
   const guardar = useMutation({
     mutationFn: () =>
-      api.post('/cash/movements', { type: tipo, amount: Number(monto).toFixed(2), reason: motivo }),
+      api.post('/cash/movements', {
+        type: tipo,
+        amount: Number(monto.replace(',', '.')).toFixed(2),
+        reason: motivo.trim(),
+      }),
     onSuccess: () => {
       onOk();
       onClose();
@@ -450,28 +477,27 @@ function ModalMovimiento({ onClose, onOk }: { onClose: () => void; onOk: () => v
             <option value="in">Ingreso (entra plata al cajón)</option>
           </Select>
         </div>
-        <div>
-          <label className="mb-1 block text-[13px] font-semibold">Monto</label>
+        <Campo etiqueta="Monto" error={v.ver('monto')}>
           <Input
-            type="number"
-            step="0.01"
-            min="0"
+            inputMode="decimal"
             value={monto}
+            onBlur={() => v.tocar('monto')}
             onChange={(e) => setMonto(e.target.value)}
             placeholder="0.00"
           />
-        </div>
-        <div>
-          <label className="mb-1 block text-[13px] font-semibold">Motivo</label>
+        </Campo>
+        <Campo
+          etiqueta="Motivo"
+          ayuda="Sin motivo, al cerrar no se distingue de un faltante."
+          error={v.ver('motivo')}
+        >
           <Input
             value={motivo}
+            onBlur={() => v.tocar('motivo')}
             onChange={(e) => setMotivo(e.target.value)}
             placeholder="Pago al proveedor de llantas"
           />
-          <p className="mt-1 text-[12px] text-muted">
-            Sin motivo, al cerrar no se distingue de un faltante.
-          </p>
-        </div>
+        </Campo>
         {error && <p className="text-[13px] text-danger">{error}</p>}
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1" onClick={onClose}>
@@ -479,8 +505,8 @@ function ModalMovimiento({ onClose, onOk }: { onClose: () => void; onOk: () => v
           </Button>
           <Button
             className="flex-1"
-            disabled={!monto || motivo.trim().length < 3 || guardar.isPending}
-            onClick={() => guardar.mutate()}
+            disabled={guardar.isPending}
+            onClick={() => v.intentar() && guardar.mutate()}
           >
             {guardar.isPending ? 'Guardando…' : 'Registrar'}
           </Button>

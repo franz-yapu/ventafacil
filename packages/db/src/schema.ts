@@ -134,6 +134,8 @@ export const subscription = pgTable('subscription', {
   lockedPrice: numeric('locked_price', { precision: 12, scale: 2 }),
   suspendedReason: text('suspended_reason'),
   cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+  /** Cuándo se avisó por correo que el periodo en curso vence pronto (NULL = aún no). */
+  renewalNoticeSentAt: timestamp('renewal_notice_sent_at', { withTimezone: true }),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
