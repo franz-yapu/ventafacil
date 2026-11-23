@@ -29,8 +29,8 @@ const updateBusinessSchema = z.object({
   name: z.string().min(1).optional(),
   logoUrl: z.string().max(400_000).nullable().optional(),
   theme: themeSchema.optional(),
-  texts: z.record(z.string()).optional(),
-  productSchema: productSchemaJson.optional(),
+  texts: z.record(z.string(), z.string()).optional(),
+  productSchema: productSchemaJson.removeDefault().optional(),
   currency: z.string().min(2).max(8).optional(),
   // Tasa de impuesto: numeric(6,4) en BD -> admite hasta 4 decimales.
   taxRate: z

@@ -44,7 +44,24 @@ export const themeSchema = z.object({
   radius: z.string().default('0.5rem'),
 });
 
-export const textsSchema = z.record(z.string()).default({});
+/**
+ * `.partial()` para un PATCH, quitando antes los `.default()` de cada campo.
+ *
+ * En zod 4, un campo `.default(x)` envuelto en `.optional()` rellena `x` cuando falta. En una
+ * edición eso es un desastre silencioso: `PATCH { name }` devolvía `isActive: true` y
+ * `attributes: {}`, reactivando un producto dado de baja y borrando sus atributos. En zod 3
+ * el `.optional()` ganaba y el campo ausente seguía ausente. Aquí se vuelve a ese
+ * comportamiento: lo que no llega, no se toca.
+ */
+export function parcialSinDefaults<T extends z.ZodObject>(esquema: T): ReturnType<T['partial']> {
+  const forma: Record<string, z.ZodType> = {};
+  for (const [k, v] of Object.entries(esquema.shape)) {
+    forma[k] = v instanceof z.ZodDefault ? (v.removeDefault() as z.ZodType) : (v as z.ZodType);
+  }
+  return z.object(forma).partial() as unknown as ReturnType<T['partial']>;
+}
+
+export const textsSchema = z.record(z.string(), z.string()).default({});
 
 /** Define que campos custom (JSONB attributes) muestra la UI por rubro. */
 export const productFieldSchema = z.object({
@@ -98,7 +115,7 @@ export const registerSchema = z.object({
    * aceptado, que es justo lo que hace falta poder demostrar.
    */
   acceptTerms: z.literal(true, {
-    errorMap: () => ({ message: 'Debes aceptar los términos para continuar' }),
+    error: 'Debes aceptar los términos para continuar',
   }),
 });
 
@@ -175,7 +192,7 @@ export const upsertProductSchema = z.object({
     archivos que ya no enseña nadie.
   */
   /** Campos custom por rubro (llantas: medida; repuestos: OEM). */
-  attributes: z.record(z.unknown()).default({}),
+  attributes: z.record(z.string(), z.unknown()).default({}),
   isActive: z.boolean().default(true),
   // Sólo al CREAR (la central asigna). Se ignoran al editar el producto.
   // locationId = sucursal dueña; initialStock/minStock siembran su fila de inventario.
@@ -332,10 +349,15 @@ export const closeCashSchema = z.object({
 });
 
 export const cashMovementSchema = z.object({
-  type: z.enum(CASH_MOVEMENT_TYPES, { required_error: 'Indica si entra o sale dinero' }),
+  type: z.enum(CASH_MOVEMENT_TYPES, {
+    error: (i) => (i.input === undefined ? 'Indica si entra o sale dinero' : undefined),
+  }),
   amount: money.refine((v) => Number(v) > 0, 'El monto debe ser mayor a cero'),
   // Un movimiento sin motivo es indistinguible de un faltante.
-  reason: z.string({ required_error: 'Explica el motivo' }).min(3, 'Explica el motivo').max(200),
+  reason: z
+    .string({ error: (i) => (i.input === undefined ? 'Explica el motivo' : undefined) })
+    .min(3, 'Explica el motivo')
+    .max(200),
 });
 
 // ── Compradores ────────────────────────────────────────────────

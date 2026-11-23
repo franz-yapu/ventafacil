@@ -70,8 +70,14 @@ describe('baja y reactivación', () => {
 
     expect((await lista()).some((x) => x.id === p.id)).toBe(false);
     expect((await lista('?estado=baja')).some((x) => x.id === p.id)).toBe(true);
-    const inv = await app.inject({ method: 'GET', url: '/api/v1/inventory', headers: auth(t.adminToken) });
-    expect((inv.json().data as { productId: string }[]).some((r) => r.productId === p.id)).toBe(false);
+    const inv = await app.inject({
+      method: 'GET',
+      url: '/api/v1/inventory',
+      headers: auth(t.adminToken),
+    });
+    expect((inv.json().data as { productId: string }[]).some((r) => r.productId === p.id)).toBe(
+      false,
+    );
 
     const alta = await app.inject({
       method: 'PATCH',
@@ -82,8 +88,13 @@ describe('baja y reactivación', () => {
     expect(alta.statusCode).toBe(200);
     expect((await lista()).some((x) => x.id === p.id)).toBe(true);
 
-    const acciones = await db.select().from(schema.auditLog).where(eq(schema.auditLog.entityId, p.id));
-    expect(acciones.map((a) => a.action)).toEqual(expect.arrayContaining(['deactivate', 'reactivate']));
+    const acciones = await db
+      .select()
+      .from(schema.auditLog)
+      .where(eq(schema.auditLog.entityId, p.id));
+    expect(acciones.map((a) => a.action)).toEqual(
+      expect.arrayContaining(['deactivate', 'reactivate']),
+    );
   });
 });
 
@@ -119,5 +130,49 @@ describe('eliminar', () => {
     const res = await app.inject({ method: 'DELETE', url: `/api/v1/products/${p.id}` });
     expect(res.statusCode).toBe(401);
     expect((await lista()).some((x) => x.id === p.id)).toBe(true);
+  });
+});
+
+describe('un PATCH parcial no toca lo que no se manda', () => {
+  // Regresión de la migración a zod 4: `.default()` dentro de `.partial()` rellenaba
+  // `isActive: true` y `attributes: {}` al editar sólo el nombre.
+  it('renombrar un producto dado de baja no lo reactiva ni borra sus atributos', async () => {
+    const p = (await crear({ name: 'Con atributos', attributes: { medida: '205/55' } })).json()
+      .data;
+    await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/products/${p.id}`,
+      headers: auth(t.adminToken),
+      payload: { isActive: false },
+    });
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/products/${p.id}`,
+      headers: auth(t.adminToken),
+      payload: { name: 'Renombrado' },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const [fila] = await db.select().from(schema.product).where(eq(schema.product.id, p.id));
+    expect(fila!.name).toBe('Renombrado');
+    expect(fila!.isActive).toBe(false);
+    expect(fila!.attributes).toEqual({ medida: '205/55' });
+  });
+
+  it('PATCH /business con sólo el nombre no vacía el esquema de campos', async () => {
+    const campos = [{ key: 'medida', label: 'Medida', type: 'text', required: false }];
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/business',
+      headers: auth(t.adminToken),
+      payload: { productSchema: campos },
+    });
+    await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/business',
+      headers: auth(t.adminToken),
+      payload: { currency: 'USD' },
+    });
+    const [b] = await db.select().from(schema.business).where(eq(schema.business.id, t.businessId));
+    expect(b!.productSchemaJson).toEqual(campos);
   });
 });

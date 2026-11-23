@@ -1,5 +1,5 @@
 import { db, schema, withTenant, type TenantTx } from '@ventafacil/db';
-import { upsertProductSchema } from '@ventafacil/shared';
+import { parcialSinDefaults, upsertProductSchema } from '@ventafacil/shared';
 import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
@@ -110,9 +110,7 @@ export async function productRoutes(app: FastifyInstance) {
     */
     const filters = [eq(schema.product.businessId, user.businessId)];
     // Los dados de baja los ve sólo un admin, y sólo si los pide.
-    filters.push(
-      eq(schema.product.isActive, !(q.estado === 'baja' && user.role === 'admin')),
-    );
+    filters.push(eq(schema.product.isActive, !(q.estado === 'baja' && user.role === 'admin')));
     const scope = viewScope(user);
     if (q.categoryId) filters.push(eq(schema.product.categoryId, q.categoryId));
     if (q.search) {
@@ -376,7 +374,7 @@ export async function productRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { id } = req.params as { id: string };
       const user = req.authUser!;
-      const parsed = upsertProductSchema.partial().safeParse(req.body);
+      const parsed = parcialSinDefaults(upsertProductSchema).safeParse(req.body);
       if (!parsed.success)
         return reply.code(400).send({ data: null, error: parsed.error.issues[0]?.message });
 
@@ -454,7 +452,8 @@ export async function productRoutes(app: FastifyInstance) {
           .from(schema.inventory)
           .where(eq(schema.inventory.productId, id));
         const detalle: string[] = [];
-        if ((ventas?.n ?? 0) > 0) detalle.push(`${ventas!.n} ${ventas!.n === 1 ? 'venta' : 'ventas'}`);
+        if ((ventas?.n ?? 0) > 0)
+          detalle.push(`${ventas!.n} ${ventas!.n === 1 ? 'venta' : 'ventas'}`);
         if ((stock?.n ?? 0) > 0) detalle.push(`${stock!.n} unidades en stock`);
         if (detalle.length > 0) return { estado: 'cuelga' as const, detalle };
         await tx.delete(schema.product).where(eq(schema.product.id, id));
@@ -472,7 +471,12 @@ export async function productRoutes(app: FastifyInstance) {
           error: `No se puede eliminar: tiene ${resultado.detalle.join(' y ')}. Dalo de baja en su lugar.`,
         });
       }
-      await app.audit(req, { action: 'delete', entity: 'product', entityId: id, before: resultado.p });
+      await app.audit(req, {
+        action: 'delete',
+        entity: 'product',
+        entityId: id,
+        before: resultado.p,
+      });
       return reply.send({ data: { eliminado: true }, error: null });
     },
   );
