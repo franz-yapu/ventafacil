@@ -162,6 +162,13 @@
       "when": 1795448000000,
       "tag": "0022_aviso_vencimiento",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1795476162968,
+      "tag": "0023_sync_snapshot",
+      "breakpoints": true
     }
   ]
 }
