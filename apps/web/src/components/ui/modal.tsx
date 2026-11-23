@@ -53,7 +53,8 @@ export function Modal({ open, onClose, title, children, className, footer, inlin
    * dar la vuelta al llegar al final, y devolver el foco a donde estaba al cerrar.
    */
   useEffect(() => {
-    if (!open) return;
+    // En modo página (pestaña) no hay hoja flotante: ni foco atrapado ni bloqueo de scroll.
+    if (!open || inline) return;
     const veniaDe = document.activeElement as HTMLElement | null;
 
     // Al primer campo si lo hay; si no, a la propia hoja, para que Escape funcione y el
@@ -94,7 +95,7 @@ export function Modal({ open, onClose, title, children, className, footer, inlin
       document.body.style.overflow = overflow;
       veniaDe?.focus?.();
     };
-  }, [open]);
+  }, [open, inline]);
 
   if (!open) return null;
   if (inline) {
