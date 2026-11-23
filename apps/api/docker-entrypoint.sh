@@ -22,8 +22,14 @@ DATABASE_URL="$OWNER_URL" pnpm --filter @ventafacil/db exec tsx src/migrate.ts
 
 # El seed va ANTES de activar RLS: con FORCE ROW LEVEL SECURITY las políticas aplican
 # también al dueño, así que sembrar después sería rechazado.
-echo "[deploy] Sembrando datos iniciales si la base está vacía…"
-DATABASE_URL="$OWNER_URL" pnpm --filter @ventafacil/db exec tsx src/seed-if-empty.ts
+# En producción real se define SKIP_DEMO_SEED=1: una base sin negocios es un estado válido
+# (recién vaciada, o sin clientes todavía) y NO debe repoblarse con el negocio de ejemplo.
+if [ "${SKIP_DEMO_SEED}" = "1" ]; then
+  echo "[deploy] SKIP_DEMO_SEED=1: no se siembran datos de ejemplo."
+else
+  echo "[deploy] Sembrando datos iniciales si la base está vacía…"
+  DATABASE_URL="$OWNER_URL" pnpm --filter @ventafacil/db exec tsx src/seed-if-empty.ts
+fi
 
 # Catálogo de planes + suscripción de los negocios anteriores al SaaS. Idempotente:
 # actualiza precios y límites en cada despliegue y no toca las suscripciones que ya están.
