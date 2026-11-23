@@ -27,7 +27,10 @@ function sistemaPrefiereOscuro(): boolean {
 
 export function leerModo(): Modo {
   const v = localStorage.getItem(CLAVE);
-  return v === 'claro' || v === 'oscuro' || v === 'auto' ? v : 'auto';
+  // Claro por defecto: seguir al sistema pintaba TODAS las pantallas oscuras a quien tiene el
+  // equipo en oscuro sin haberlo elegido para esta aplicación. El modo automático sigue
+  // existiendo, pero hay que escogerlo en Mi perfil.
+  return v === 'claro' || v === 'oscuro' || v === 'auto' ? v : 'claro';
 }
 
 /** ¿Qué se pinta de verdad con este modo, ahora? */

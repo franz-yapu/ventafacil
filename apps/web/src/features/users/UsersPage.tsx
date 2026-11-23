@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { LIMITES } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { clave, largo, requerido, todas, usuario } from '@/lib/validar';
+import { Campo, Seccion } from '@/components/ui/field';
 import { Modal } from '@/components/ui/modal';
 import { EmptyState, Page, PageHeader, SkeletonRows } from '@/components/ui/page';
 import { Select } from '@/components/ui/select';
@@ -244,99 +248,149 @@ function UserForm({
     onError: (e) => setError(e instanceof ApiError ? e.message : 'Error al guardar'),
   });
 
-  const passwordInvalid = form.password.length > 0 && form.password.length < 6;
-  const canSave =
-    form.name.length >= 1 &&
-    // Un vendedor sin sucursal queda con la app vacía y muda; el API también lo rechaza.
-    (form.role !== 'seller' || !!form.locationId) &&
-    (isNew ? form.username.length >= 3 && form.password.length >= 6 : !passwordInvalid) &&
-    !save.isPending;
+  const v = useValidacion(
+    {
+      name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      username: isNew ? todas(requerido('El usuario'), usuario) : () => null,
+      password: isNew ? todas(requerido('La contraseña'), clave) : clave,
+    },
+    { name: form.name, username: form.username, password: form.password },
+  );
+  // Un vendedor sin sucursal queda con la app vacía y muda; el API también lo rechaza.
+  const sinSucursal = form.role === 'seller' && !form.locationId;
+  const canSave = !save.isPending;
 
   return (
-    <Modal open onClose={onClose} title={isNew ? 'Nuevo usuario' : `Editar · ${user!.name}`}>
-      <div className="flex flex-col gap-3">
-        <label className="text-sm text-muted">Nombre</label>
-        <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-
-        <label className="text-sm text-muted">Usuario</label>
-        <Input
-          value={form.username}
-          disabled={!isNew}
-          onChange={(e) => setForm({ ...form, username: e.target.value })}
-        />
-        {!isNew && (
-          <p className="-mt-2 text-xs text-muted">El nombre de usuario no se puede cambiar.</p>
-        )}
-
-        <label className="text-sm text-muted">
-          {isNew ? 'Contraseña' : 'Nueva contraseña (opcional)'}
-        </label>
-        <Input
-          type="text"
-          autoComplete="new-password"
-          placeholder={isNew ? 'Mín. 6 caracteres' : 'Dejar en blanco para no cambiarla'}
-          value={form.password}
-          onChange={(e) => setForm({ ...form, password: e.target.value })}
-        />
-        {passwordInvalid && <p className="-mt-2 text-xs text-danger">Mínimo 6 caracteres.</p>}
-        {!isNew && (
-          <p className="-mt-1 text-xs text-muted">
-            Si la cambias, se te mostrará para que la copies y se la envíes al usuario.
-          </p>
-        )}
-
-        <label className="text-sm text-muted">Rol</label>
-        <Select
-          value={form.role}
-          onChange={(e) => setForm({ ...form, role: e.target.value as 'admin' | 'seller' })}
-        >
-          <option value="seller">Vendedor</option>
-          <option value="admin">Administrador</option>
-        </Select>
-
-        {/* Para un vendedor la ubicación NO es opcional: sin ella no puede vender ni
-            ver nada, y la app se le queda vacía sin decirle por qué. */}
-        <label className="text-sm text-muted">
-          Ubicación{form.role === 'seller' ? '' : ' (opcional)'}
-        </label>
-        <Select
-          value={form.locationId ?? ''}
-          onChange={(e) => setForm({ ...form, locationId: e.target.value })}
-        >
-          <option value="">{form.role === 'seller' ? 'Elige una sucursal' : 'Sin asignar'}</option>
-          {locations.map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
-            </option>
-          ))}
-        </Select>
-        {form.role === 'seller' && !form.locationId && (
-          <p className="-mt-1 text-xs text-warning">
-            Un vendedor necesita una sucursal: sin ella no podría vender ni ver nada.
-          </p>
-        )}
-
-        {!isNew && (
-          <label className="mt-1 flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={form.isActive}
-              onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+    <Modal
+      open
+      onClose={onClose}
+      title={isNew ? 'Nuevo usuario' : `Editar · ${user!.name}`}
+      footer={
+        <div className="flex flex-col gap-2">
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button
+            disabled={!canSave}
+            onClick={() => {
+              setError(null);
+              const ok = v.intentar();
+              if (!ok || sinSucursal) return setError('Corrige los campos marcados en rojo.');
+              save.mutate();
+            }}
+          >
+            {isNew ? 'Crear usuario' : 'Guardar cambios'}
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-6">
+        <Seccion titulo="Quién es">
+          <Campo
+            etiqueta="Nombre completo"
+            ayuda="Así lo verás en ventas y reportes."
+            error={v.ver('name')}
+          >
+            <Input
+              onBlur={() => v.tocar('name')}
+              value={form.name}
+              placeholder="Ej. Ana Pérez"
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
-            Usuario activo
-          </label>
-        )}
+          </Campo>
+        </Seccion>
 
-        {error && <p className="text-sm text-danger">{error}</p>}
-        <Button
-          disabled={!canSave}
-          onClick={() => {
-            setError(null);
-            save.mutate();
-          }}
-        >
-          Guardar
-        </Button>
+        <Seccion titulo="Cómo entra">
+          <Campo
+            etiqueta="Usuario"
+            ayuda={
+              isNew
+                ? 'Mínimo 3 letras, sin espacios. No se podrá cambiar después.'
+                : 'El nombre de usuario no se puede cambiar.'
+            }
+            error={v.ver('username')}
+          >
+            <Input
+              onBlur={() => v.tocar('username')}
+              value={form.username}
+              disabled={!isNew}
+              autoCapitalize="none"
+              autoCorrect="off"
+              placeholder="Ej. ana"
+              onChange={(e) => setForm({ ...form, username: e.target.value })}
+            />
+          </Campo>
+          <Campo
+            etiqueta={isNew ? 'Contraseña' : 'Nueva contraseña'}
+            opcional={!isNew}
+            error={v.ver('password')}
+            ayuda={
+              isNew
+                ? 'Mínimo 6 caracteres. Al guardar te la mostramos para que se la envíes.'
+                : 'Déjala en blanco para no cambiarla. Si la cambias, te la mostramos para copiarla.'
+            }
+          >
+            <Input
+              type="text"
+              autoComplete="new-password"
+              onBlur={() => v.tocar('password')}
+              placeholder="Mínimo 6 caracteres"
+              value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })}
+            />
+          </Campo>
+        </Seccion>
+
+        <Seccion titulo="Qué puede hacer">
+          <Campo
+            etiqueta="Rol"
+            ayuda={
+              form.role === 'seller'
+                ? 'Vende, cobra y ve el stock de su sucursal.'
+                : 'Ve y configura todo el negocio, incluidos usuarios y precios.'
+            }
+          >
+            <Select
+              value={form.role}
+              onChange={(e) => setForm({ ...form, role: e.target.value as 'admin' | 'seller' })}
+            >
+              <option value="seller">Vendedor</option>
+              <option value="admin">Administrador</option>
+            </Select>
+          </Campo>
+
+          {/* Para un vendedor la sucursal NO es opcional: sin ella no puede vender ni
+              ver nada, y la app se le queda vacía sin decirle por qué. */}
+          <Campo
+            etiqueta="Sucursal"
+            opcional={form.role !== 'seller'}
+            error={sinSucursal ? 'Elige la sucursal donde va a vender.' : undefined}
+          >
+            <Select
+              value={form.locationId ?? ''}
+              onChange={(e) => setForm({ ...form, locationId: e.target.value })}
+            >
+              <option value="">
+                {form.role === 'seller' ? 'Elige una sucursal' : 'Sin asignar'}
+              </option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </Select>
+          </Campo>
+
+          {!isNew && (
+            <label className="flex min-h-11 items-center gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="h-5 w-5"
+                checked={form.isActive}
+                onChange={(e) => setForm({ ...form, isActive: e.target.checked })}
+              />
+              Usuario activo
+            </label>
+          )}
+        </Seccion>
       </div>
     </Modal>
   );

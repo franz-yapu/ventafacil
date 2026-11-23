@@ -79,7 +79,7 @@ export async function createTenant(app: FastifyInstance, slug: string): Promise<
       locationId,
       sku: `SKU-${slug}`,
       name: `Producto secreto de ${slug}`,
-      price: '100.00',
+      price: '1.00',
       cost: '50.00',
       categoryId: cat!.id,
     })

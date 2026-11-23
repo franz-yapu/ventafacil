@@ -229,6 +229,38 @@ describe('tope de descuento del vendedor', () => {
     expect(res.json().error).toMatch(/10%/);
   });
 
+  it('el vendedor NO puede cobrar una línea por debajo del catálogo', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/sales',
+      headers: auth(vendedor),
+      payload: venta({
+        subtotal: '0.02',
+        total: '0.02',
+        items: [
+          {
+            productId: t.productId,
+            productNameSnapshot: 'Producto',
+            unitPriceSnapshot: '0.01',
+            quantity: 2,
+            lineTotal: '0.02',
+          },
+        ],
+      }),
+    });
+    expect(res.statusCode).toBe(409);
+    expect(res.json().code).toBe('precio_bajo');
+  });
+
+  it('un DELETE con content-type JSON y cuerpo vacío no da 400', async () => {
+    const res = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/products/${crypto.randomUUID()}`,
+      headers: { ...auth(t.adminToken), 'content-type': 'application/json' },
+    });
+    expect(res.statusCode).not.toBe(400);
+  });
+
   it('dentro del tope sí puede', async () => {
     expect((await venderComoCajera('10.00')).statusCode).toBe(201);
   });

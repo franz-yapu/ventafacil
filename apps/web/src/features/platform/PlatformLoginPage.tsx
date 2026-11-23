@@ -1,5 +1,6 @@
 import { ShieldCheck } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
+import { AuthHero, AuthHeroMovil, AuthLayout, RECIBO_PLATAFORMA } from '@/components/AuthHero';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { usePlatformAuth } from '@/features/platform/PlatformAuthProvider';
@@ -19,9 +20,17 @@ export function PlatformLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
 
+  const [faltan, setFaltan] = useState<{ e?: string; p?: string }>({});
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    const f = {
+      e: email.trim() ? undefined : 'Escribe tu correo',
+      p: password ? undefined : 'Escribe tu contraseña',
+    };
+    setFaltan(f);
+    if (f.e || f.p) return;
     setEnviando(true);
     try {
       await login(email, password);
@@ -32,25 +41,51 @@ export function PlatformLoginPage() {
     }
   }
 
+  const cab = (
+    <>
+      <div className="flex h-10 w-10 items-center justify-center rounded-[12px] bg-white text-[#15151c]">
+        <ShieldCheck size={20} />
+      </div>
+      <span className="text-[17px] font-semibold">VentaFácil · Plataforma</span>
+    </>
+  );
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-5 px-4 py-8">
-      <div className="w-full max-w-sm">
-        {/* Marca oscura y candado, nunca el logo de un cliente: quien llega aquí tiene
-            que ver de un vistazo que ésta no es la puerta de ningún negocio. */}
-        <div className="mb-5 flex flex-col items-center gap-3 text-center">
-          <div className="flex h-16 w-16 items-center justify-center rounded-[16px] bg-fg text-bg">
-            <ShieldCheck size={30} />
-          </div>
-          <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em]">Plataforma</h1>
-            <p className="mt-0.5 text-[13px] text-muted">Administración de todos los negocios</p>
-          </div>
+    <AuthLayout
+      movil={
+        <AuthHeroMovil
+          cabecera={cab}
+          titular={
+            <>
+              Todos los negocios, <span className="auth-accent">un solo panel.</span>
+            </>
+          }
+        />
+      }
+      hero={
+        <AuthHero
+          cabecera={cab}
+          recibo={RECIBO_PLATAFORMA}
+          anillo="PLANES · OFERTAS · SUSCRIPCIONES · BITÁCORA · "
+          titular={
+            <>
+              Todos los negocios, <span className="auth-accent">un solo panel.</span>
+            </>
+          }
+          texto="Altas, planes, precios, ofertas y estado de cada suscripción. Todo cambio queda en la bitácora de la plataforma."
+          puntos={[
+            'Ingresos y cartera en vivo',
+            'Planes y ofertas editables',
+            'Bitácora de cada cambio',
+          ]}
+        />
+      }
+    >
+      <div className="w-full max-w-[460px] rounded-[24px] border border-border bg-surface p-6 shadow-card md:p-10">
+        <div className="motion-safe:animate-rise">
+          <h1 className="auth-display text-[38px] leading-[1.05]">Plataforma</h1>
+          <p className="mb-6 mt-2 text-[15px] text-muted">Administración de todos los negocios</p>
         </div>
-
-        <form
-          onSubmit={onSubmit}
-          className="flex flex-col gap-4 rounded-theme border border-border bg-surface p-5"
-        >
+        <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
           <div>
             <label className="mb-1.5 block text-[13px] font-semibold" htmlFor="pf-email">
               Correo del operador
@@ -62,9 +97,17 @@ export function PlatformLoginPage() {
               autoComplete="username"
               placeholder="operador@tudominio.com"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
+              aria-invalid={faltan.e ? true : undefined}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                setFaltan((f) => ({ ...f, e: undefined }));
+              }}
             />
+            {faltan.e && (
+              <p role="alert" className="mt-1 text-xs text-danger">
+                {faltan.e}
+              </p>
+            )}
           </div>
 
           <div>
@@ -77,9 +120,17 @@ export function PlatformLoginPage() {
               autoComplete="current-password"
               placeholder="••••••••••••"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
+              aria-invalid={faltan.p ? true : undefined}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                setFaltan((f) => ({ ...f, p: undefined }));
+              }}
             />
+            {faltan.p && (
+              <p role="alert" className="mt-1 text-xs text-danger">
+                {faltan.p}
+              </p>
+            )}
           </div>
 
           {error && (
@@ -103,6 +154,6 @@ export function PlatformLoginPage() {
           cámbiala desde el servidor.
         </p>
       </div>
-    </div>
+    </AuthLayout>
   );
 }

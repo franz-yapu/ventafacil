@@ -13,13 +13,13 @@
  * 2. **Se sube 60 kB en vez de 4 MB.** Por la conexión de una tienda, eso es la diferencia
  *    entre que subir el catálogo tarde un rato y que no termine nunca.
  *
- * El recorte es CUADRADO y centrado a propósito. Es lo que hace que la rejilla del POS se
- * vea ordenada sin tener que quitarle el fondo a nada: todas las tarjetas iguales, y la
- * foto centrada en su cuadro. Quitar el fondo cuesta bastante más —un servicio de pago por
- * imagen, o varios MB de modelo en el navegador— y aporta bastante menos.
+ * NO se recorta: la foto conserva su proporción y sólo se reduce hasta que su lado mayor
+ * mide 800 px. Antes se recortaba a un cuadrado central, y un producto largo (un alicate,
+ * una escalera) perdía los extremos al subirlo. Es la pantalla que muestra la foto —un
+ * cuadro pequeño con `object-contain`— la que se ocupa de encajarla.
  */
 
-/** Lado del cuadro final. 800 se ve nítido hasta en una tablet buena y pesa poco. */
+/** Lado MAYOR de la foto final. 800 se ve nítido hasta en una tablet buena y pesa poco. */
 const LADO = 800;
 /** 0.8 en WebP es donde deja de notarse la diferencia y el archivo aún es pequeño. */
 const CALIDAD = 0.8;
@@ -36,12 +36,7 @@ export interface ImagenLista {
 
 export class ErrorDeImagen extends Error {}
 
-/**
- * Recorta al cuadro central, escala a 800×800 y devuelve WebP.
- *
- * El recorte se hace tomando el cuadrado más grande que cabe en la foto y centrado. Para
- * una foto de producto es casi siempre lo correcto: la gente encuadra el objeto en medio.
- */
+/** Escala conservando la proporción (lado mayor = 800, sin ampliar) y devuelve WebP. */
 export async function prepararImagen(file: File): Promise<ImagenLista> {
   if (!file.type.startsWith('image/')) {
     throw new ErrorDeImagen('Eso no parece una imagen.');
@@ -52,13 +47,14 @@ export async function prepararImagen(file: File): Promise<ImagenLista> {
 
   const bitmap = await cargar(file);
   try {
-    const lado = Math.min(bitmap.width, bitmap.height);
-    const sx = (bitmap.width - lado) / 2;
-    const sy = (bitmap.height - lado) / 2;
+    // Sin ampliar: una foto de 300 px no gana nada estirada a 800.
+    const escala = Math.min(1, LADO / Math.max(bitmap.width, bitmap.height));
+    const ancho = Math.max(1, Math.round(bitmap.width * escala));
+    const alto = Math.max(1, Math.round(bitmap.height * escala));
 
     const canvas = document.createElement('canvas');
-    canvas.width = LADO;
-    canvas.height = LADO;
+    canvas.width = ancho;
+    canvas.height = alto;
     const ctx = canvas.getContext('2d');
     if (!ctx) throw new ErrorDeImagen('Este navegador no puede procesar la imagen.');
 
@@ -70,9 +66,9 @@ export async function prepararImagen(file: File): Promise<ImagenLista> {
       blanco debajo se ve como se espera en los dos modos.
     */
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, LADO, LADO);
+    ctx.fillRect(0, 0, ancho, alto);
     ctx.imageSmoothingQuality = 'high';
-    ctx.drawImage(bitmap, sx, sy, lado, lado, 0, 0, LADO, LADO);
+    ctx.drawImage(bitmap, 0, 0, bitmap.width, bitmap.height, 0, 0, ancho, alto);
 
     const blob = await new Promise<Blob | null>((res) => canvas.toBlob(res, 'image/webp', CALIDAD));
     if (!blob) throw new ErrorDeImagen('No se pudo preparar la imagen.');

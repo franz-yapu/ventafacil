@@ -1,4 +1,5 @@
-import { blockedMessage, type EffectiveStatus } from '@ventafacil/shared';
+import { importe } from '@/features/subscription/PlanCard';
+import { ahorroPct, blockedMessage, enOferta, type EffectiveStatus } from '@ventafacil/shared';
 import { useQuery } from '@tanstack/react-query';
 import { Lock } from 'lucide-react';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -53,9 +54,19 @@ export function SubscriptionBlocked({ status }: { status: EffectiveStatus }) {
                     <div className="text-sm font-semibold">{p.name}</div>
                     <div className="text-[13px] text-muted">{p.description}</div>
                   </div>
-                  <div className="shrink-0 text-sm font-bold">
-                    {p.currency} {p.priceMonthly}
-                    <span className="font-normal text-muted"> /mes</span>
+                  <div className="shrink-0 text-right text-sm font-bold">
+                    {enOferta(p) && (
+                      <div className="text-[11px] font-bold uppercase tracking-[0.06em] text-primary">
+                        {p.offerLabel || 'Oferta'} · −{ahorroPct(p)}%
+                      </div>
+                    )}
+                    {enOferta(p) && (
+                      <s className="block text-[12px] font-normal text-muted">
+                        {p.currency} {p.regularPrice}
+                      </s>
+                    )}
+                    {p.currency} {importe(p.priceMonthly, 'anual')}
+                    <span className="font-normal text-muted"> /año</span>
                   </div>
                 </li>
               ))}

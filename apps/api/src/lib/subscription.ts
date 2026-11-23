@@ -8,6 +8,8 @@ import {
   type EffectiveStatus,
   type LimitKey,
   type PlanFeature,
+  periodoPagado,
+  type PeriodoPagado,
 } from '@ventafacil/shared';
 import { and, count, eq } from 'drizzle-orm';
 import type { FastifyReply, FastifyRequest } from 'fastify';
@@ -28,6 +30,8 @@ export interface TenantAccess {
     name: string;
     description: string;
     priceMonthly: string;
+    regularPrice: string | null;
+    offerLabel: string | null;
     currency: string;
     maxLocations: number | null;
     maxUsers: number | null;
@@ -41,6 +45,8 @@ export interface TenantAccess {
     suspendedReason: string | null;
   } | null;
   blocked: boolean;
+  /** Fase del periodo pagado (por vencer, gracia, sólo lectura). `null` si no aplica. */
+  periodo: PeriodoPagado | null;
 }
 
 // ── Caché en proceso ───────────────────────────────────────────
@@ -72,6 +78,9 @@ async function leerAcceso(businessId: string): Promise<TenantAccess> {
       name: schema.plan.name,
       description: schema.plan.description,
       priceMonthly: schema.plan.priceMonthly,
+      lockedPrice: schema.subscription.lockedPrice,
+      regularPrice: schema.plan.regularPrice,
+      offerLabel: schema.plan.offerLabel,
       currency: schema.plan.currency,
       maxLocations: schema.plan.maxLocations,
       maxUsers: schema.plan.maxUsers,
@@ -90,7 +99,7 @@ async function leerAcceso(businessId: string): Promise<TenantAccess> {
   // trabajo del cliente. `seed-plans` da de alta a todo negocio que no tenga
   // suscripción, así que en la práctica esto no debería ocurrir nunca.
   if (!row) {
-    return { businessId, plan: null, subscription: null, blocked: false };
+    return { businessId, plan: null, subscription: null, blocked: false, periodo: null };
   }
 
   const status = effectiveStatus({ status: row.status, trialEndsAt: row.trialEndsAt });
@@ -100,7 +109,10 @@ async function leerAcceso(businessId: string): Promise<TenantAccess> {
       code: row.code,
       name: row.name,
       description: row.description,
-      priceMonthly: row.priceMonthly,
+      // Lo que paga ESTE negocio: el precio que se le mantiene, no el actual del catálogo.
+      priceMonthly: row.lockedPrice ?? row.priceMonthly,
+      regularPrice: row.regularPrice,
+      offerLabel: row.offerLabel,
       currency: row.currency,
       maxLocations: row.maxLocations,
       maxUsers: row.maxUsers,
@@ -114,6 +126,7 @@ async function leerAcceso(businessId: string): Promise<TenantAccess> {
       suspendedReason: row.suspendedReason,
     },
     blocked: isBlocked(status),
+    periodo: periodoPagado({ status: row.status, currentPeriodEnd: row.currentPeriodEnd }),
   };
 }
 
@@ -140,6 +153,13 @@ const RUTAS_LIBRES = new Set(
     // Confirmar el correo estando suspendido es inofensivo, y es justo lo que necesita
     // quien quiere poder recuperar su cuenta.
     '/auth/resend-verification',
+    // Salir, cerrar sesiones ajenas y marcar el tour no son operar: se permiten siempre.
+    '/auth/logout',
+    '/auth/sessions/revoke-all',
+    '/auth/tour-seen',
+    // Las ventas ya hechas sin conexión tienen que poder subirse aunque el plan haya vencido:
+    // son dinero que ya se cobró. Sólo SUBE lo anterior, no abre ventas nuevas.
+    '/sales/sync',
     '/subscription/me',
     '/plans',
     '/business/me',
@@ -197,6 +217,26 @@ export async function gateSubscription(req: FastifyRequest, reply: FastifyReply)
   if (url && RUTAS_LIBRES.has(url)) return;
 
   const access = await cargarAcceso(businessId);
+
+  /*
+    Plan pagado vencido hace 7 días o más: SÓLO LECTURA.
+
+    Puede entrar, mirar sus ventas, productos y reportes, y descargar sus datos; no puede
+    crear, editar ni vender. Se decide por el método HTTP —GET/HEAD/OPTIONS leen, el resto
+    escribe— para cubrir toda ruta presente y futura sin acordarse de marcarla una a una.
+    Es 402 como el bloqueo, con otro `code`, para que la pantalla explique "renueva tu
+    plan" en vez de enseñar un error técnico.
+  */
+  if (!access.blocked && access.periodo && !access.periodo.puedeEscribir) {
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) {
+      return reply.code(402).send({
+        data: null,
+        error:
+          'Tu plan venció hace más de 7 días y la cuenta está en modo solo lectura. Renueva tu plan para volver a vender y editar.',
+        code: 'subscription_readonly',
+      });
+    }
+  }
   if (!access.blocked) return;
 
   const status = access.subscription!.status;

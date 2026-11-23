@@ -6,21 +6,23 @@ import {
   cotizar,
   effectiveStatus,
   isBlocked,
+  periodoPagado,
   MENSAJE_SLUG,
   SUBSCRIPTION_STATUS,
   validarSlug,
   type EffectiveStatus,
 } from '@ventafacil/shared';
 import argon2 from 'argon2';
-import { and, asc, count, desc, eq, ilike, ne, or } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, ne, or, sql } from 'drizzle-orm';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { randomInt } from 'node:crypto';
 import { z } from 'zod';
 import { env } from '../env.js';
 import { enviarCorreo, urlDelNegocio } from '../lib/mailer.js';
 import { violaUnica } from '../lib/pg-errores.js';
+import { respaldarNegocio } from '../lib/respaldo-negocio.js';
 import { revocarTodo } from '../lib/sessions.js';
-import { invalidateAccess } from '../lib/subscription.js';
+import { clearAccessCache, invalidateAccess } from '../lib/subscription.js';
 
 /**
  * Panel de plataforma: el operador (tú) por encima de todos los negocios.
@@ -35,6 +37,19 @@ import { invalidateAccess } from '../lib/subscription.js';
 const loginBody = z.object({
   email: z.string().email(),
   password: z.string().min(1),
+});
+
+const dinero = z.string().regex(/^\d{1,7}(\.\d{1,2})?$/, 'Precio inválido (ej. 74.50)');
+const cupo = z.number().int().min(1, 'El cupo mínimo es 1').max(1_000_000).nullable();
+
+/** Lo único editable de un plan desde el panel: precio, oferta y cupos. */
+const updatePlanBody = z.object({
+  priceMonthly: dinero.optional(),
+  regularPrice: dinero.nullable().optional(),
+  offerLabel: z.string().trim().max(40).nullable().optional(),
+  maxLocations: cupo.optional(),
+  maxUsers: cupo.optional(),
+  maxProducts: cupo.optional(),
 });
 
 const updateSubBody = z.object({
@@ -58,6 +73,8 @@ const updateSubBody = z.object({
 const listQuery = z.object({
   search: z.string().optional(),
   limit: z.coerce.number().int().min(1).max(200).default(100),
+  /** `por-vencer`: planes pagados a 15 días o menos de vencer, o ya vencidos. */
+  estado: z.enum(['por-vencer']).optional(),
 });
 
 /** Renombrar un negocio o mudarlo de subdominio. */
@@ -173,6 +190,29 @@ export function mesesCumplidos(desde: Date, hasta: Date): number {
   if (diaDestino.getTime() > hasta.getTime()) n -= 1;
   return Math.max(0, n);
 }
+
+/** Nombres legibles para la bitácora del negocio que se enseña en el panel. */
+const ACCION: Record<string, string> = {
+  login: 'Inicio de sesión',
+  create: 'Alta de',
+  update: 'Cambio en',
+  delete: 'Eliminó',
+  deactivate: 'Baja de',
+  reactivate: 'Reactivó',
+  cancel: 'Anuló',
+  stock_adjust: 'Ajuste de stock',
+  transfer: 'Transferencia de',
+};
+const ENTIDAD: Record<string, string> = {
+  app_user: '',
+  product: 'producto',
+  inventory: 'inventario',
+  location: 'sucursal',
+  customer: 'comprador',
+  sale: 'venta',
+  business: 'negocio',
+  cash_register: 'caja',
+};
 
 export async function platformRoutes(app: FastifyInstance) {
   // ── Sesión ───────────────────────────────────────────────────
@@ -572,11 +612,14 @@ export async function platformRoutes(app: FastifyInstance) {
         createdAt: schema.business.createdAt,
         planCode: schema.subscription.planCode,
         planName: schema.plan.name,
-        priceMonthly: schema.plan.priceMonthly,
+        priceMonthly: sql<string>`coalesce(${schema.subscription.lockedPrice}, ${schema.plan.priceMonthly})`,
         currency: schema.plan.currency,
         status: schema.subscription.status,
         trialEndsAt: schema.subscription.trialEndsAt,
         currentPeriodEnd: schema.subscription.currentPeriodEnd,
+        cycleStartedAt: schema.subscription.cycleStartedAt,
+        billingMonths: schema.subscription.billingMonths,
+        billedAmount: schema.subscription.billedAmount,
         suspendedReason: schema.subscription.suspendedReason,
       })
       .from(schema.business)
@@ -595,7 +638,7 @@ export async function platformRoutes(app: FastifyInstance) {
 
     // El estado efectivo (prueba vencida) se calcula aquí, igual que en el API del
     // negocio, para que el panel muestre lo mismo que ve el cliente.
-    const data = rows.map((r) => {
+    const todos = rows.map((r) => {
       const status: EffectiveStatus | null = r.status
         ? effectiveStatus({ status: r.status, trialEndsAt: r.trialEndsAt })
         : null;
@@ -612,8 +655,16 @@ export async function platformRoutes(app: FastifyInstance) {
               currentPeriodEnd: r.currentPeriodEnd,
             })
           : null,
+        // Fase del plan pagado (por vencer / gracia / sólo lectura), calculada por el servidor.
+        periodo: r.status
+          ? periodoPagado({ status: r.status, currentPeriodEnd: r.currentPeriodEnd })
+          : null,
       };
     });
+    const data =
+      q.data.estado === 'por-vencer'
+        ? todos.filter((r) => r.periodo && r.periodo.fase !== 'al_dia')
+        : todos;
 
     return reply.send({ data, error: null });
   });
@@ -661,12 +712,63 @@ export async function platformRoutes(app: FastifyInstance) {
         .where(eq(schema.sale.businessId, id))
         .orderBy(desc(schema.sale.clientCreatedAt))
         .limit(1);
+      /*
+        Los 5 últimos movimientos del negocio: ventas (y anulaciones) más lo que quedó en su
+        bitácora que no sea una venta —esa ya sale como venta—. Se piden 5 de cada cosa y se
+        recorta tras mezclar: con 5 de una sola fuente, una racha de ventas escondería un
+        cambio de stock de hace una hora.
+      */
+      const ventas = await tx
+        .select({
+          fecha: schema.sale.clientCreatedAt,
+          estado: schema.sale.status,
+          recibo: schema.sale.receiptNumber,
+          total: schema.sale.total,
+          sucursal: schema.location.name,
+          usuario: schema.appUser.name,
+        })
+        .from(schema.sale)
+        .innerJoin(schema.location, eq(schema.location.id, schema.sale.locationId))
+        .innerJoin(schema.appUser, eq(schema.appUser.id, schema.sale.userId))
+        .where(eq(schema.sale.businessId, id))
+        .orderBy(desc(schema.sale.clientCreatedAt))
+        .limit(5);
+      const acciones = await tx
+        .select({
+          fecha: schema.auditLog.createdAt,
+          accion: schema.auditLog.action,
+          entidad: schema.auditLog.entity,
+          usuario: schema.appUser.name,
+        })
+        .from(schema.auditLog)
+        .leftJoin(schema.appUser, eq(schema.appUser.id, schema.auditLog.userId))
+        .where(and(eq(schema.auditLog.businessId, id), ne(schema.auditLog.action, 'sale')))
+        .orderBy(desc(schema.auditLog.createdAt))
+        .limit(5);
+      const movimientos = [
+        ...ventas.map((x) => ({
+          fecha: x.fecha,
+          tipo: x.estado === 'cancelled' ? ('anulacion' as const) : ('venta' as const),
+          detalle: `Recibo ${x.recibo ?? '—'} · Bs. ${x.total} · ${x.sucursal}`,
+          usuario: x.usuario as string | null,
+        })),
+        ...acciones.map((x) => ({
+          fecha: x.fecha,
+          tipo: 'accion' as const,
+          detalle: `${ACCION[x.accion] ?? x.accion} ${ENTIDAD[x.entidad] ?? x.entidad}`.trim(),
+          usuario: x.usuario,
+        })),
+      ]
+        .sort((a, b) => b.fecha.getTime() - a.fecha.getTime())
+        .slice(0, 5);
+
       return {
         users: u?.n ?? 0,
         locations: l?.n ?? 0,
         products: p?.n ?? 0,
         sales: v?.n ?? 0,
         lastSaleAt: ultima?.at ?? null,
+        movimientos,
       };
     });
 
@@ -680,6 +782,9 @@ export async function platformRoutes(app: FastifyInstance) {
         subscription: sub ? { ...sub, status } : null,
         blocked: status ? isBlocked(status) : false,
         vence: vencimiento(sub ?? null),
+        periodo: sub
+          ? periodoPagado({ status: sub.status, currentPeriodEnd: sub.currentPeriodEnd })
+          : null,
         usage: uso,
       },
       error: null,
@@ -773,6 +878,63 @@ export async function platformRoutes(app: FastifyInstance) {
     });
     return reply.send({
       data: { ...after, url: after!.slug ? urlDelNegocio(after!.slug) : null },
+      error: null,
+    });
+  });
+
+  /**
+   * Eliminar un negocio EXPIRADO (prueba vencida o cancelado), con copia previa.
+   *
+   * Sólo del principal, y sólo si ya expiró: borrar uno que paga o que está en prueba
+   * sería perder a un cliente por un clic. La copia (JSON) se escribe antes; si falla,
+   * no se borra nada. La bitácora conserva quién lo hizo y dónde quedó la copia.
+   */
+  app.delete('/platform/tenants/:id', { preHandler: app.requirePlatform }, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const [biz] = await db
+      .select({ id: schema.business.id, name: schema.business.name, slug: schema.business.slug })
+      .from(schema.business)
+      .where(eq(schema.business.id, id))
+      .limit(1);
+    if (!biz) return reply.code(404).send({ data: null, error: 'Negocio no encontrado' });
+    if (!(await esPrincipal(req, reply, 'eliminar un negocio'))) return reply;
+
+    const [sub] = await db
+      .select()
+      .from(schema.subscription)
+      .where(eq(schema.subscription.businessId, id))
+      .limit(1);
+    const estado = sub
+      ? effectiveStatus({ status: sub.status, trialEndsAt: sub.trialEndsAt })
+      : null;
+    if (estado !== 'trial_expired' && estado !== 'cancelled') {
+      return reply.code(409).send({
+        data: null,
+        error: 'Sólo se pueden eliminar negocios expirados (prueba vencida o cancelados)',
+      });
+    }
+
+    let respaldo;
+    try {
+      respaldo = await respaldarNegocio(id);
+    } catch (e) {
+      req.log.error({ err: e }, 'falló la copia previa al borrado');
+      return reply
+        .code(500)
+        .send({ data: null, error: 'No se pudo hacer la copia de seguridad; no se eliminó nada' });
+    }
+
+    await db.delete(schema.business).where(eq(schema.business.id, id));
+    clearAccessCache();
+    await registrar(req, {
+      action: 'tenant_delete',
+      businessId: null,
+      businessName: biz.name,
+      before: { ...biz, estado },
+      after: { copia: respaldo.archivo, filas: respaldo.filas },
+    });
+    return reply.send({
+      data: { eliminado: true, copia: respaldo.archivo, filas: respaldo.filas },
       error: null,
     });
   });
@@ -952,7 +1114,10 @@ export async function platformRoutes(app: FastifyInstance) {
       if (!q.success) return reply.code(400).send({ data: null, error: 'Parámetros inválidos' });
 
       const [sub] = await db
-        .select({ planCode: schema.subscription.planCode })
+        .select({
+          planCode: schema.subscription.planCode,
+          lockedPrice: schema.subscription.lockedPrice,
+        })
         .from(schema.subscription)
         .where(eq(schema.subscription.businessId, id))
         .limit(1);
@@ -972,7 +1137,10 @@ export async function platformRoutes(app: FastifyInstance) {
       if (!planFila) return reply.code(400).send({ data: null, error: 'Ese plan no existe' });
 
       const opciones = CICLOS.map((c) => ({
-        ...cotizar(planFila.priceMonthly, c.meses),
+        ...cotizar(
+          codigo === sub?.planCode && sub?.lockedPrice ? sub.lockedPrice : planFila.priceMonthly,
+          c.meses,
+        ),
         nombre: c.nombre,
         aviso: avisoDePermanencia(c.meses),
       }));
@@ -1080,7 +1248,18 @@ export async function platformRoutes(app: FastifyInstance) {
 
       const patch: Record<string, unknown> = { updatedAt: new Date() };
       const d = parsed.data;
-      if (d.planCode !== undefined) patch.planCode = d.planCode;
+      if (d.planCode !== undefined) {
+        patch.planCode = d.planCode;
+        if (d.planCode !== before?.planCode) {
+          // Plan nuevo -> precio vigente del plan nuevo (el que ve cualquier cliente nuevo).
+          const [pn] = await db
+            .select({ priceMonthly: schema.plan.priceMonthly })
+            .from(schema.plan)
+            .where(eq(schema.plan.code, d.planCode))
+            .limit(1);
+          patch.lockedPrice = pn?.priceMonthly ?? null;
+        }
+      }
       if (d.status !== undefined) {
         patch.status = d.status;
         // La fecha de baja la pone el servidor: es lo que después cuenta como churn.
@@ -1150,11 +1329,18 @@ export async function platformRoutes(app: FastifyInstance) {
           (d.planCode === undefined || d.planCode === before?.planCode);
 
         if (!mismoCiclo) {
-          const q = cotizar(planFila.priceMonthly, d.billingMonths);
+          const mantiene =
+            (d.planCode === undefined || d.planCode === before?.planCode) && before?.lockedPrice;
+          const q = cotizar(
+            mantiene ? before!.lockedPrice! : planFila.priceMonthly,
+            d.billingMonths,
+          );
           const desde = new Date();
           patch.billingMonths = q.meses;
           patch.billedAmount = q.total;
           patch.cycleStartedAt = desde;
+          // Periodo nuevo: vuelve a tocar el aviso de "vence pronto".
+          patch.renewalNoticeSentAt = null;
           patch.currentPeriodEnd = new Date(new Date(desde).setMonth(desde.getMonth() + q.meses));
         }
       } else if (d.planCode !== undefined && d.planCode !== before?.planCode) {
@@ -1190,6 +1376,14 @@ export async function platformRoutes(app: FastifyInstance) {
           .values({
             businessId: id,
             planCode: d.planCode,
+            lockedPrice:
+              (
+                await db
+                  .select({ p: schema.plan.priceMonthly })
+                  .from(schema.plan)
+                  .where(eq(schema.plan.code, d.planCode))
+                  .limit(1)
+              )[0]?.p ?? null,
             status: d.status ?? 'active',
             trialEndsAt: d.trialEndsAt ? new Date(d.trialEndsAt) : null,
             suspendedReason: d.suspendedReason ?? null,
@@ -1210,6 +1404,69 @@ export async function platformRoutes(app: FastifyInstance) {
     },
   );
 
+  // ── Catálogo de planes (precio, oferta y cupos) ──────────────
+
+  /** Todos los planes, también los internos: el panel edita precio, oferta y cupos. */
+  app.get('/platform/plans', { preHandler: app.requirePlatform }, async (_req, reply) => {
+    const rows = await db.select().from(schema.plan).orderBy(asc(schema.plan.sortOrder));
+    return reply.send({ data: rows, error: null });
+  });
+
+  /**
+   * Editar un plan: SOLO precio, oferta y cupos. Afecta únicamente a los negocios nuevos:
+   * los que ya contrataron conservan su `locked_price`. Los cupos sí rigen para todos.
+   */
+  app.patch(
+    '/platform/plans/:code',
+    { preHandler: [app.requirePlatform, soloPrincipalComercial] },
+    async (req, reply) => {
+      const { code } = req.params as { code: string };
+      const parsed = updatePlanBody.safeParse(req.body);
+      if (!parsed.success) {
+        return reply
+          .code(400)
+          .send({ data: null, error: parsed.error.issues[0]?.message ?? 'Datos inválidos' });
+      }
+      const d = parsed.data;
+      const [before] = await db
+        .select()
+        .from(schema.plan)
+        .where(eq(schema.plan.code, code))
+        .limit(1);
+      if (!before) return reply.code(404).send({ data: null, error: 'Plan no encontrado' });
+
+      const precio = d.priceMonthly ?? before.priceMonthly;
+      const lista = d.regularPrice === undefined ? before.regularPrice : d.regularPrice;
+      if (lista != null && Number(lista) <= Number(precio)) {
+        return reply.code(400).send({
+          data: null,
+          error: 'El precio de lista debe ser mayor que el precio de oferta (o déjalo vacío)',
+        });
+      }
+
+      const patch: Record<string, unknown> = {};
+      if (d.priceMonthly !== undefined) patch.priceMonthly = d.priceMonthly;
+      if (d.regularPrice !== undefined) patch.regularPrice = d.regularPrice;
+      if (d.offerLabel !== undefined) patch.offerLabel = d.offerLabel;
+      if (d.maxLocations !== undefined) patch.maxLocations = d.maxLocations;
+      if (d.maxUsers !== undefined) patch.maxUsers = d.maxUsers;
+      if (d.maxProducts !== undefined) patch.maxProducts = d.maxProducts;
+      if (Object.keys(patch).length === 0) {
+        return reply.code(400).send({ data: null, error: 'No hay nada que cambiar' });
+      }
+
+      const [after] = await db
+        .update(schema.plan)
+        .set(patch)
+        .where(eq(schema.plan.code, code))
+        .returning();
+
+      clearAccessCache(); // los cupos cambian para todos: que la caché no sirva lo viejo
+      await registrar(req, { action: 'plan_update', before, after });
+      return reply.send({ data: after, error: null });
+    },
+  );
+
   // ── Métricas ─────────────────────────────────────────────────
 
   /**
@@ -1223,9 +1480,10 @@ export async function platformRoutes(app: FastifyInstance) {
       .select({
         status: schema.subscription.status,
         trialEndsAt: schema.subscription.trialEndsAt,
+        currentPeriodEnd: schema.subscription.currentPeriodEnd,
         cancelledAt: schema.subscription.cancelledAt,
         createdAt: schema.subscription.createdAt,
-        priceMonthly: schema.plan.priceMonthly,
+        priceMonthly: sql<string>`coalesce(${schema.subscription.lockedPrice}, ${schema.plan.priceMonthly})`,
         planCode: schema.plan.code,
       })
       .from(schema.subscription)
@@ -1240,8 +1498,13 @@ export async function platformRoutes(app: FastifyInstance) {
     let mrrEnRiesgo = 0;
     let altasDelMes = 0;
     let bajasDelMes = 0;
+    const fases = { porVencer: 0, enGracia: 0, soloLectura: 0 };
 
     for (const r of rows) {
+      const per = periodoPagado({ status: r.status, currentPeriodEnd: r.currentPeriodEnd });
+      if (per?.fase === 'por_vencer') fases.porVencer++;
+      if (per?.fase === 'gracia') fases.enGracia++;
+      if (per?.fase === 'solo_lectura') fases.soloLectura++;
       const status = effectiveStatus({ status: r.status, trialEndsAt: r.trialEndsAt });
       porEstado[status] = (porEstado[status] ?? 0) + 1;
       const precio = Number(r.priceMonthly);
@@ -1263,6 +1526,7 @@ export async function platformRoutes(app: FastifyInstance) {
         bajasDelMes,
         totalNegocios: totalNegocios?.n ?? 0,
         conSuscripcion: rows.length,
+        ...fases,
       },
       error: null,
     });

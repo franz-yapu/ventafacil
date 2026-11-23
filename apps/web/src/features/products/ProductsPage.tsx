@@ -1,18 +1,22 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { History, Package, Pencil, Plus, Search } from 'lucide-react';
+import { History, Package, Pencil, Plus, RotateCcw, Search, Trash2, Archive } from 'lucide-react';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { ConfirmarModal } from '@/components/ConfirmarModal';
 import { Exportar } from '@/components/Exportar';
 import { FotoDeProducto, Miniatura } from '@/features/products/FotoDeProducto';
 import { ImportarProductos } from '@/features/products/ImportarProductos';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { EmptyState, Page, PageHeader, SkeletonRows } from '@/components/ui/page';
+import { Campo, Seccion } from '@/components/ui/field';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useAuth } from '@/features/auth/AuthProvider';
 import { HistoryModal } from '@/features/inventory/HistoryModal';
+import { LIMITES } from '@ventafacil/shared';
 import { api, ApiError } from '@/lib/api';
+import { entero, importe, largo, requerido, todas, validar } from '@/lib/validar';
 import { money } from '@/lib/format';
 import { cn } from '@/lib/utils';
 import type { ImagenLista } from '@/lib/imagen';
@@ -26,6 +30,8 @@ export function ProductsPage() {
   const business = useBusiness();
   const [search, setSearch] = useState('');
   const [locationId, setLocationId] = useState('');
+  const [estado, setEstado] = useState<'activos' | 'baja'>('activos');
+  const [aviso, setAviso] = useState<string | null>(null);
   const [editing, setEditing] = useState<Product | null | 'new'>(null);
   const [history, setHistory] = useState<{ id: string; name: string } | null>(null);
   const isAdmin = user?.role === 'admin';
@@ -54,18 +60,58 @@ export function ProductsPage() {
   const params = new URLSearchParams();
   if (search) params.set('search', search);
   if (locationId) params.set('locationId', locationId);
+  if (estado === 'baja') params.set('estado', 'baja');
   const qs = params.toString();
   const { items, total, hasNextPage, fetchNextPage, isFetchingNextPage, isLoading } =
     useInfiniteList<Product>(
-      ['products', 'admin', search, locationId],
+      ['products', 'admin', search, locationId, estado],
       `/products${qs ? `?${qs}` : ''}`,
     );
-  const reload = () => qc.invalidateQueries({ queryKey: ['products'] });
+  const reload = () => {
+    qc.invalidateQueries({ queryKey: ['products'] });
+    qc.invalidateQueries({ queryKey: ['inventory'] });
+  };
+
+  /** Baja, reactivación o eliminación de un producto: abre el modal de confirmación. */
+  const [pedido, setPedido] = useState<{
+    p: Product;
+    que: 'baja' | 'reactivar' | 'eliminar';
+    /** Por qué no se pudo eliminar, cuando se ofrece la baja como alternativa. */
+    motivo?: string;
+  } | null>(null);
+  const [gestionando, setGestionando] = useState(false);
+  const [errorGestion, setErrorGestion] = useState<string | null>(null);
+
+  function gestionar(p: Product, que: 'baja' | 'reactivar' | 'eliminar') {
+    setAviso(null);
+    setErrorGestion(null);
+    setPedido({ p, que });
+  }
+
+  async function confirmarGestion() {
+    if (!pedido) return;
+    const { p, que } = pedido;
+    setGestionando(true);
+    setErrorGestion(null);
+    try {
+      if (que === 'eliminar') await api.del(`/products/${p.id}`);
+      else await api.patch(`/products/${p.id}`, { isActive: que === 'reactivar' });
+      reload();
+      setPedido(null);
+    } catch (e) {
+      const msg = e instanceof ApiError ? e.message : (e as Error).message;
+      // No se pudo eliminar (tiene ventas o stock): se ofrece la baja en el mismo modal.
+      if (que === 'eliminar' && p.isActive) setPedido({ p, que: 'baja', motivo: msg });
+      else setErrorGestion(msg);
+    } finally {
+      setGestionando(false);
+    }
+  }
 
   // Vacío por filtro y vacío de verdad no son lo mismo: uno se arregla borrando la
   // búsqueda y el otro dando de alta un producto. Decir lo mismo en los dos casos deja
   // a la persona buscando un botón que no le sirve.
-  const filtrando = !!search || !!locationId;
+  const filtrando = !!search || !!locationId || estado === 'baja';
   const vacio = !isLoading && items.length === 0;
 
   return (
@@ -107,6 +153,18 @@ export function ProductsPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        {isAdmin && (
+          <Select
+            filter
+            className="max-w-[180px]"
+            aria-label="Estado"
+            value={estado}
+            onChange={(e) => setEstado(e.target.value as 'activos' | 'baja')}
+          >
+            <option value="activos">Activos</option>
+            <option value="baja">Dados de baja</option>
+          </Select>
+        )}
         {isCentral && (
           <Select
             filter
@@ -123,6 +181,15 @@ export function ProductsPage() {
           </Select>
         )}
       </div>
+
+      {aviso && (
+        <p
+          role="alert"
+          className="rounded-theme border border-danger/40 bg-danger/[0.05] p-3 text-sm text-danger"
+        >
+          {aviso}
+        </p>
+      )}
 
       {isLoading && (
         <Card>
@@ -218,6 +285,26 @@ export function ProductsPage() {
                           <Pencil size={16} />
                         </button>
                       )}
+                      {p.canManage && isAdmin && (
+                        <>
+                          <button
+                            onClick={() => gestionar(p, p.isActive ? 'baja' : 'reactivar')}
+                            className="text-muted hover:text-primary"
+                            title={p.isActive ? 'Dar de baja' : 'Reactivar'}
+                            aria-label={`${p.isActive ? 'Dar de baja' : 'Reactivar'} ${p.name}`}
+                          >
+                            {p.isActive ? <Archive size={16} /> : <RotateCcw size={16} />}
+                          </button>
+                          <button
+                            onClick={() => gestionar(p, 'eliminar')}
+                            className="text-muted hover:text-danger"
+                            title="Eliminar"
+                            aria-label={`Eliminar ${p.name}`}
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -271,6 +358,24 @@ export function ProductsPage() {
                   <Pencil size={16} /> Editar
                 </button>
               )}
+              {p.canManage && isAdmin && (
+                <button
+                  onClick={() => gestionar(p, p.isActive ? 'baja' : 'reactivar')}
+                  className="flex h-11 flex-1 items-center justify-center gap-1.5 rounded-[11px] border border-field bg-surface text-[13px] font-semibold"
+                >
+                  {p.isActive ? <Archive size={16} /> : <RotateCcw size={16} />}
+                  {p.isActive ? 'Baja' : 'Reactivar'}
+                </button>
+              )}
+              {p.canManage && isAdmin && (
+                <button
+                  onClick={() => gestionar(p, 'eliminar')}
+                  aria-label={`Eliminar ${p.name}`}
+                  className="flex h-11 w-11 items-center justify-center rounded-[11px] border border-field bg-surface text-danger"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
             </div>
           </div>
         ))}
@@ -306,6 +411,49 @@ export function ProductsPage() {
           onClose={() => setHistory(null)}
         />
       )}
+      {pedido && (
+        <ConfirmarModal
+          titulo={
+            pedido.que === 'baja'
+              ? 'Dar de baja el producto'
+              : pedido.que === 'reactivar'
+                ? 'Reactivar el producto'
+                : 'Eliminar el producto'
+          }
+          tono={pedido.que === 'reactivar' ? 'normal' : 'peligro'}
+          confirmar={
+            pedido.que === 'baja'
+              ? 'Dar de baja'
+              : pedido.que === 'reactivar'
+                ? 'Reactivar'
+                : 'Eliminar'
+          }
+          pendiente={gestionando}
+          error={errorGestion}
+          mensaje={
+            <>
+              {pedido.motivo && <p className="mb-2 font-semibold">{pedido.motivo}</p>}
+              {pedido.que === 'baja' && (
+                <p>
+                  {pedido.motivo ? '¿Darlo de baja ahora? ' : ''}«{pedido.p.name}» deja de salir en
+                  ventas e inventario, pero conserva su historial. Se puede reactivar.
+                </p>
+              )}
+              {pedido.que === 'reactivar' && (
+                <p>«{pedido.p.name}» volverá a salir en ventas e inventario.</p>
+              )}
+              {pedido.que === 'eliminar' && (
+                <p>
+                  ¿Eliminar «{pedido.p.name}» para siempre? Solo se puede si no tiene ventas ni
+                  stock.
+                </p>
+              )}
+            </>
+          }
+          onConfirmar={() => void confirmarGestion()}
+          onCancelar={() => setPedido(null)}
+        />
+      )}
     </Page>
   );
 }
@@ -339,6 +487,40 @@ function ProductForm({
     minStock: '',
   });
   const [error, setError] = useState<string | null>(null);
+  // Un campo muestra su error al salir de él, o todos al intentar guardar.
+  const [tocados, setTocados] = useState<Set<string>>(new Set());
+  const [intentado, setIntentado] = useState(false);
+  const errores: Record<string, string | undefined> = {
+    ...validar(
+      {
+        name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+        description: largo(0, LIMITES.descripcionMax),
+        price: todas(requerido('El precio de venta'), importe({ permiteCero: false })),
+        cost: importe(),
+        costWholesale: importe(),
+        initialStock: entero(),
+        minStock: entero(),
+      },
+      {
+        name: form.name,
+        description: form.description,
+        price: form.price,
+        cost: form.cost,
+        costWholesale: form.costWholesale,
+        initialStock: form.initialStock,
+        minStock: form.minStock,
+      },
+    ),
+  };
+  for (const f of schema) {
+    const v = String(form.attributes[f.key] ?? '');
+    if (f.required && v.trim() === '') errores[`attr:${f.key}`] = `${f.label} es obligatorio`;
+    else if (v.length > LIMITES.nombreMax)
+      errores[`attr:${f.key}`] = `Máximo ${LIMITES.nombreMax} caracteres`;
+  }
+  const ver = (k: string) => (intentado || tocados.has(k) ? errores[k] : undefined);
+  const tocar = (k: string) => setTocados((t) => new Set(t).add(k));
+  const hayErrores = Object.keys(errores).length > 0;
   const [foto, setFoto] = useState<ImagenLista | null>(null);
   const [quitarFoto, setQuitarFoto] = useState(false);
 
@@ -415,158 +597,205 @@ function ProductForm({
   });
 
   return (
-    <Modal open onClose={onClose} title={product ? 'Editar producto' : 'Nuevo producto'}>
-      <div className="flex flex-col gap-3">
-        {isNew && (
-          <>
-            <label className="text-sm text-muted">Sucursal / Central</label>
-            <Select
-              value={form.locationId}
-              onChange={(e) => setForm({ ...form, locationId: e.target.value })}
-            >
-              {locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                  {l.isCentral ? ' (Central)' : ''}
-                </option>
-              ))}
-            </Select>
-          </>
-        )}
-        {/*
-          El SKU se MUESTRA, no se escribe.
-
-          Lo genera el sistema (correlativo por negocio) y antes se podía teclear encima,
-          al crear y al editar. Un código que el sistema controla y que a la vez cualquiera
-          reescribe no es un código: invita a duplicados y a erratas, y ese SKU ya viajó a
-          recibos y exportaciones que no se pueden corregir.
-
-          Al crear todavía no existe —se asigna al guardar—, así que se dice eso en vez de
-          enseñar un campo vacío que parece rellenable. Quien necesite su propio código
-          tiene el de barras, que el buscador ya admite.
-        */}
-        <label htmlFor="pf-sku" className="text-sm text-muted">
-          SKU
-        </label>
-        <Input
-          id="pf-sku"
-          readOnly
-          value={isNew ? '' : form.sku}
-          placeholder={isNew ? 'Se genera solo al guardar' : undefined}
-          className="text-muted"
-        />
-
-        <label htmlFor="pf-nombre" className="text-sm text-muted">
-          Nombre
-        </label>
-        <Input
-          id="pf-nombre"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-        />
-
-        {/*
-          Descripción: existía en la base y el POS ya la enseñaba, pero no había forma de
-          escribirla. Es lo que distingue dos productos que se llaman casi igual —«Llanta
-          175/70R13» y «…reforzada»— cuando quien atiende no es quien compró la mercadería.
-
-          `textarea` y no `Input`: en una línea no cabe, y este es el hueco donde cada
-          negocio pone lo suyo — la talla y el color en ropa, el sabor en caramelos, la
-          medida en llantas.
-        */}
-        <label htmlFor="pf-desc" className="text-sm text-muted">
-          Descripción <span className="text-xs">(opcional)</span>
-        </label>
-        <textarea
-          id="pf-desc"
-          rows={3}
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-          placeholder="Lo que ayude a distinguirlo: talla, color, sabor, medida…"
-          className="ds-field w-full resize-y rounded-theme border border-field bg-surface px-3 py-2 text-sm"
-        />
-
-        <FotoDeProducto
-          actual={product?.imageUrl}
-          nueva={foto}
-          onNueva={setFoto}
-          quitar={quitarFoto}
-          onQuitar={setQuitarFoto}
-        />
-
-        <label htmlFor="pf-precio" className="text-sm text-muted">
-          Precio de venta
-        </label>
-        <Input
-          id="pf-precio"
-          inputMode="decimal"
-          value={form.price}
-          onChange={(e) => setForm({ ...form, price: e.target.value })}
-        />
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-sm text-muted">Compra unitario</label>
-            <Input
-              inputMode="decimal"
-              value={form.cost}
-              onChange={(e) => setForm({ ...form, cost: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-sm text-muted">Compra por mayor</label>
-            <Input
-              inputMode="decimal"
-              value={form.costWholesale}
-              onChange={(e) => setForm({ ...form, costWholesale: e.target.value })}
-            />
-          </div>
-        </div>
-        {Number(form.cost) > 0 && (
-          <div className="rounded-theme bg-muted/10 p-2 text-sm">
-            Ganancia por unidad:{' '}
-            <span className="font-semibold text-success">
-              {money(margin)} ({marginPct.toFixed(0)}%)
-            </span>
-          </div>
-        )}
-        {schema.map((f) => (
-          <div key={f.key} className="flex flex-col gap-1">
-            <label className="text-sm text-muted">
-              {f.label}
-              {f.required ? ' *' : ''}
-            </label>
-            <Input
-              value={String(form.attributes[f.key] ?? '')}
-              onChange={(e) =>
-                setForm({ ...form, attributes: { ...form.attributes, [f.key]: e.target.value } })
+    <Modal
+      open
+      onClose={onClose}
+      title={product ? 'Editar producto' : 'Nuevo producto'}
+      footer={
+        <div className="flex flex-col gap-2">
+          {error && <p className="text-sm text-danger">{error}</p>}
+          <Button
+            onClick={() => {
+              setIntentado(true);
+              setError(null);
+              if (hayErrores) {
+                setError('Corrige los campos marcados en rojo.');
+                setTimeout(
+                  () => document.querySelector<HTMLElement>('[aria-invalid="true"]')?.focus(),
+                  0,
+                );
+                return;
               }
+              save.mutate();
+            }}
+            disabled={save.isPending}
+          >
+            {save.isPending ? 'Guardando…' : 'Guardar'}
+          </Button>
+        </div>
+      }
+    >
+      <div className="flex flex-col gap-6">
+        <Seccion titulo="Producto">
+          <Campo
+            etiqueta="Nombre"
+            ayuda="Como lo busca y lo reconoce quien vende."
+            error={ver('name')}
+          >
+            <Input
+              maxLength={LIMITES.nombreMax + 20}
+              onBlur={() => tocar('name')}
+              value={form.name}
+              placeholder="Ej. Llanta 175/70R13"
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
             />
-          </div>
-        ))}
-        {isNew && (
+          </Campo>
+          {/* El SKU se MUESTRA, no se escribe: lo genera el sistema (correlativo por
+              negocio). Escribible invitaba a duplicados y erratas que ya viajaron a recibos. */}
+          <Campo
+            etiqueta="Código (SKU)"
+            ayuda={
+              isNew ? 'Lo asigna el sistema al guardar.' : 'Lo asigna el sistema; no se edita.'
+            }
+          >
+            <Input
+              readOnly
+              value={isNew ? '' : form.sku}
+              placeholder={isNew ? 'Se genera solo al guardar' : undefined}
+              className="text-muted"
+            />
+          </Campo>
+          {isNew && (
+            <Campo
+              etiqueta="¿Dónde se guarda?"
+              ayuda="La sucursal o central que recibe el stock inicial."
+            >
+              <Select
+                value={form.locationId}
+                onChange={(e) => setForm({ ...form, locationId: e.target.value })}
+              >
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                    {l.isCentral ? ' (Central)' : ''}
+                  </option>
+                ))}
+              </Select>
+            </Campo>
+          )}
+          <Campo
+            etiqueta="Descripción"
+            opcional
+            ayuda="Talla, color, sabor, medida… lo que lo distingue de otro parecido."
+            error={ver('description')}
+          >
+            <textarea
+              rows={3}
+              onBlur={() => tocar('description')}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="ds-field w-full resize-y rounded-theme border border-field bg-surface px-3 py-2 text-base aria-[invalid=true]:border-danger"
+            />
+          </Campo>
+          <FotoDeProducto
+            actual={product?.imageUrl}
+            nueva={foto}
+            onNueva={setFoto}
+            quitar={quitarFoto}
+            onQuitar={setQuitarFoto}
+          />
+        </Seccion>
+
+        <Seccion titulo="Precios">
+          <Campo
+            etiqueta="Precio de venta"
+            ayuda={`Lo que paga el cliente, en bolivianos (máx. ${LIMITES.importeMax}).`}
+            error={ver('price')}
+          >
+            <Input
+              onBlur={() => tocar('price')}
+              inputMode="decimal"
+              placeholder="0.00"
+              value={form.price}
+              onChange={(e) => setForm({ ...form, price: e.target.value })}
+            />
+          </Campo>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm text-muted">Stock inicial</label>
+            <Campo etiqueta="Costo unitario" opcional error={ver('cost')}>
               <Input
-                inputMode="numeric"
-                value={form.initialStock}
-                onChange={(e) => setForm({ ...form, initialStock: e.target.value })}
+                onBlur={() => tocar('cost')}
+                inputMode="decimal"
+                placeholder="0.00"
+                value={form.cost}
+                onChange={(e) => setForm({ ...form, cost: e.target.value })}
               />
-            </div>
-            <div>
-              <label className="text-sm text-muted">Stock mínimo</label>
+            </Campo>
+            <Campo etiqueta="Costo por mayor" opcional error={ver('costWholesale')}>
               <Input
-                inputMode="numeric"
-                value={form.minStock}
-                onChange={(e) => setForm({ ...form, minStock: e.target.value })}
+                onBlur={() => tocar('costWholesale')}
+                inputMode="decimal"
+                placeholder="0.00"
+                value={form.costWholesale}
+                onChange={(e) => setForm({ ...form, costWholesale: e.target.value })}
               />
-            </div>
+            </Campo>
           </div>
+          {Number(form.cost) > 0 && (
+            <div className="rounded-theme bg-muted/10 p-2.5 text-sm">
+              Ganancia por unidad:{' '}
+              <span className="font-semibold text-success">
+                {money(margin)} ({marginPct.toFixed(0)}%)
+              </span>
+            </div>
+          )}
+        </Seccion>
+
+        {isNew && (
+          <Seccion titulo="Stock">
+            <div className="grid grid-cols-2 gap-3">
+              <Campo
+                etiqueta="Stock inicial"
+                ayuda="Cuántas unidades hay hoy."
+                error={ver('initialStock')}
+              >
+                <Input
+                  onBlur={() => tocar('initialStock')}
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={form.initialStock}
+                  onChange={(e) => setForm({ ...form, initialStock: e.target.value })}
+                />
+              </Campo>
+              <Campo
+                etiqueta="Stock mínimo"
+                ayuda="Te avisamos al llegar a esta cantidad."
+                error={ver('minStock')}
+              >
+                <Input
+                  onBlur={() => tocar('minStock')}
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={form.minStock}
+                  onChange={(e) => setForm({ ...form, minStock: e.target.value })}
+                />
+              </Campo>
+            </div>
+          </Seccion>
         )}
-        {error && <p className="text-sm text-danger">{error}</p>}
-        <Button onClick={() => save.mutate()} disabled={save.isPending}>
-          Guardar
-        </Button>
+
+        {schema.length > 0 && (
+          <Seccion titulo="Detalles del rubro">
+            {schema.map((f) => (
+              <Campo
+                key={f.key}
+                etiqueta={f.label}
+                opcional={!f.required}
+                error={ver(`attr:${f.key}`)}
+              >
+                <Input
+                  onBlur={() => tocar(`attr:${f.key}`)}
+                  value={String(form.attributes[f.key] ?? '')}
+                  onChange={(e) =>
+                    setForm({
+                      ...form,
+                      attributes: { ...form.attributes, [f.key]: e.target.value },
+                    })
+                  }
+                />
+              </Campo>
+            ))}
+          </Seccion>
+        )}
       </div>
     </Modal>
   );

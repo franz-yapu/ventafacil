@@ -15,7 +15,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
         'h-11 w-full rounded-theme border border-field bg-surface px-3 text-base text-fg',
         // Sin foco propio: lo pone la regla global de `index.css`. El `outline-none` que
         // había aquí ganaba por cascada y dejaba el campo con un anillo de 1.82:1.
-        'placeholder:text-muted',
+        'placeholder:text-muted aria-[invalid=true]:border-danger aria-[invalid=true]:bg-danger/[0.04]',
         filter && 'h-[42px] rounded-theme-sm border-field text-[13px] text-fg/80',
         className,
       )}

@@ -1,4 +1,5 @@
 import type { EffectiveStatus, LimitKey, PlanFeature } from '@ventafacil/shared';
+import type { PeriodoPagado } from '@ventafacil/shared';
 import { useQuery } from '@tanstack/react-query';
 import { createContext, useContext, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -9,6 +10,9 @@ export interface PlanInfo {
   name: string;
   description: string;
   priceMonthly: string;
+  /** Precio de lista; si supera a `priceMonthly` el plan está en oferta. */
+  regularPrice?: string | null;
+  offerLabel?: string | null;
   currency: string;
   maxLocations: number | null;
   maxUsers: number | null;
@@ -24,6 +28,8 @@ export interface SubscriptionInfo {
   trialEndsAt: string | null;
   trialDaysLeft: number | null;
   currentPeriodEnd: string | null;
+  /** Fase del plan pagado: por vencer, gracia o sólo lectura. `null` si no aplica. */
+  periodo: PeriodoPagado | null;
   features: PlanFeature[] | null;
   usage: Record<LimitKey, { used: number; limit: number | null }>;
 }

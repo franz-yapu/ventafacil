@@ -25,6 +25,7 @@ import { useAuth } from '@/features/auth/AuthProvider';
 import { EmailVerifyBanner } from '@/features/auth/EmailVerifyBanner';
 import { AvisoDeTerminos } from '@/features/legal/AvisoDeTerminos';
 import { SubscriptionBanner } from '@/features/subscription/SubscriptionBanner';
+import { VencimientoModal } from '@/features/subscription/VencimientoModal';
 import { useSubscription } from '@/features/subscription/SubscriptionProvider';
 import { BotonAyuda } from '@/features/tour/BotonAyuda';
 import { TourProvider } from '@/features/tour/TourProvider';
@@ -70,21 +71,24 @@ const ADMIN_CHILDREN = [
 ];
 
 const SECTION_LABEL =
-  'px-3 pb-[7px] pt-4 text-[10px] font-bold uppercase tracking-[0.09em] text-muted/60';
+  'px-3 pb-[7px] pt-4 text-[10px] font-bold uppercase tracking-[0.09em] text-nav-muted';
 
 // Item del sidebar de escritorio: tinte suave del primario cuando está activo
 // (calcado de navStyle del prototipo), gris neutro cuando no.
 const sideItem = (isActive: boolean) =>
   cn(
-    'flex w-full items-center gap-3 rounded-[10px] px-[11px] py-2.5 text-sm font-semibold transition-colors',
-    isActive ? 'ds-nav-tint' : 'text-muted hover:bg-fg/[0.05]',
+    'relative flex w-full items-center gap-3 rounded-[10px] px-[11px] py-2.5 text-sm font-semibold transition-colors duration-150',
+    // Activo: relleno claro sobre el menú oscuro y una barrita del color de la marca (el 10 %).
+    isActive
+      ? 'bg-nav-hover text-nav-fg before:absolute before:left-0 before:top-1/2 before:h-5 before:w-[3px] before:-translate-y-1/2 before:rounded-full before:bg-primary'
+      : 'text-nav-muted hover:bg-nav-hover hover:text-nav-fg',
   );
 
 // Item de la barra inferior móvil: reparto uniforme (flex-1), sin píldora;
 // sólo el ícono y la etiqueta cambian de color (calcado del prototipo).
 const bottomItem = (isActive: boolean) =>
   cn(
-    'flex flex-col items-center justify-center gap-1 text-[10px] font-semibold transition-colors',
+    'flex min-w-0 flex-col items-center justify-center gap-1 text-[11px] font-semibold leading-none transition-colors',
     isActive ? 'text-primary' : 'text-muted',
   );
 
@@ -116,12 +120,18 @@ export function Layout({ children }: { children: ReactNode }) {
 
   return (
     <TourProvider>
+      <a
+        href="#contenido"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-2 focus:top-2 focus:z-50 focus:rounded-theme focus:bg-surface focus:px-3 focus:py-2 focus:text-sm focus:font-semibold"
+      >
+        Saltar al contenido
+      </a>
       <div className="flex min-h-full flex-col md:flex-row">
         {/* ===== Sidebar (sólo escritorio) ===== */}
-        <aside className="no-print hidden bg-surface md:sticky md:top-0 md:flex md:h-screen md:w-[230px] md:shrink-0 md:flex-col md:border-r md:border-border">
+        <aside className="no-print hidden bg-nav text-nav-fg md:sticky md:top-0 md:flex md:h-screen md:w-[236px] md:shrink-0 md:flex-col">
           <div className="flex items-center gap-3 px-[18px] pb-4 pt-5">
             <Marca size="sm" />
-            <NombreDeMarca className="truncate text-[15px] font-bold tracking-[-0.02em]" />
+            <NombreDeMarca className="truncate text-[15px] font-bold tracking-[-0.02em] text-nav-fg" />
           </div>
           <nav className="flex-1 space-y-0.5 overflow-auto px-3 py-1">
             {items.map((n) => (
@@ -156,30 +166,32 @@ export function Layout({ children }: { children: ReactNode }) {
             )}
           </nav>
           {/* Bloque de usuario (-> Mi perfil) + salir (pie del sidebar). */}
-          <div className="border-t border-border p-3">
+          <div className="border-t border-nav-line p-3">
             <NavLink
               to="/perfil"
               className={({ isActive }) =>
                 cn(
                   'flex items-center gap-2.5 rounded-[10px] px-2 py-2 transition-colors',
-                  isActive ? 'ds-nav-tint' : 'hover:bg-fg/[0.05]',
+                  isActive ? 'bg-nav-hover' : 'hover:bg-nav-hover',
                 )
               }
             >
-              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-track text-sm font-bold text-muted">
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-nav-hover text-sm font-bold text-nav-fg">
                 {userInitial}
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate text-[13px] font-semibold">{user?.name ?? 'Usuario'}</div>
-                <div className="text-[11px] text-muted">{roleLabel}</div>
+                <div className="truncate text-[13px] font-semibold text-nav-fg">
+                  {user?.name ?? 'Usuario'}
+                </div>
+                <div className="text-[11px] text-nav-muted">{roleLabel}</div>
               </div>
             </NavLink>
             {/* Ayuda ANTES de Salir: son dos botones iguales uno encima del otro, y el que
               se pulsa por error tiene que ser el que no echa a nadie de su sesión. */}
-            <BotonAyuda className="mt-2" />
+            <BotonAyuda className="mt-2 border-nav-line text-nav-muted hover:bg-nav-hover hover:text-nav-fg" />
             <button
               onClick={logout}
-              className="mt-2 flex w-full items-center justify-center gap-2 rounded-theme border border-field p-2.5 text-[13px] font-semibold text-muted hover:bg-muted/10"
+              className="mt-2 flex w-full items-center justify-center gap-2 rounded-theme border border-nav-line p-2.5 text-[13px] font-semibold text-nav-muted transition-colors hover:bg-nav-hover hover:text-nav-fg"
             >
               <LogOut size={16} /> Salir
             </button>
@@ -224,7 +236,11 @@ export function Layout({ children }: { children: ReactNode }) {
         {/* El hueco de abajo sale de la barra real (72px) más el área segura, en vez de
           un pb-24 a ojo que en algunos teléfonos tapaba la última fila. Va como clase y
           no en línea para que `md:pb-0` pueda ganarle en escritorio. */}
-        <main className="order-1 flex-1 pb-[calc(72px+env(safe-area-inset-bottom)+12px)] md:order-2 md:pb-0">
+        <main
+          id="contenido"
+          tabIndex={-1}
+          className="order-1 flex-1 outline-none pb-[calc(72px+env(safe-area-inset-bottom)+12px)] md:order-2 md:pb-0"
+        >
           <div className="no-print sticky top-0 z-10 flex h-14 items-center justify-between border-b border-border bg-surface px-4">
             {/* En móvil no hay barra lateral: la marca vive aquí. */}
             <div className="flex min-w-0 items-center gap-2 md:hidden">
@@ -264,6 +280,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </div>
           <AvisoDeError />
           <SubscriptionBanner />
+          <VencimientoModal />
           <EmailVerifyBanner />
           {/* El último de los tres a propósito: el de la suscripción y el del correo piden
             algo que hay que hacer para no quedarse fuera; éste sólo pide leer. */}

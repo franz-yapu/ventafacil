@@ -68,6 +68,9 @@ export interface PlanDefinition {
   name: string;
   /** Precio mensual como string decimal (nunca float). */
   priceMonthly: string;
+  /** Precio de lista; si es mayor que `priceMonthly`, el plan está en oferta. */
+  regularPrice?: string | null;
+  offerLabel?: string | null;
   currency: string;
   description: string;
   maxLocations: number | null;
@@ -89,14 +92,19 @@ export const DEFAULT_PLAN_CODE: PlanCode = 'basico';
  * Catálogo. Los PRECIOS son una decisión de negocio y se ajustan aquí; el resto del
  * código no tiene ni un número escrito a mano.
  */
+/** Rótulo de la oferta vigente (editable desde el panel de plataforma). */
+const OFERTA = 'Oferta de este mes';
+
 export const PLAN_CATALOG: PlanDefinition[] = [
   {
     code: 'basico',
     name: 'Básico',
-    priceMonthly: '149.00',
+    priceMonthly: '74.50',
+    regularPrice: '85.50',
+    offerLabel: OFERTA,
     currency: 'BOB',
-    description: 'Para un negocio con una sola tienda.',
-    maxLocations: 1,
+    description: 'Para un negocio con hasta dos sucursales.',
+    maxLocations: 2,
     maxUsers: 3,
     maxProducts: 500,
     // La bitácora entra en TODOS los planes. Es el único control que tiene un dueño
@@ -110,7 +118,9 @@ export const PLAN_CATALOG: PlanDefinition[] = [
   {
     code: 'pro',
     name: 'Pro',
-    priceMonthly: '299.00',
+    priceMonthly: '149.50',
+    regularPrice: '172.00',
+    offerLabel: OFERTA,
     currency: 'BOB',
     description: 'Varias sucursales, con panel de análisis y bitácora de actividad.',
     maxLocations: 3,
@@ -123,7 +133,9 @@ export const PLAN_CATALOG: PlanDefinition[] = [
   {
     code: 'ilimitado',
     name: 'Ilimitado',
-    priceMonthly: '599.00',
+    priceMonthly: '299.50',
+    regularPrice: '344.50',
+    offerLabel: OFERTA,
     currency: 'BOB',
     description: 'Sin límites de sucursales, usuarios ni productos.',
     maxLocations: null,
@@ -324,4 +336,73 @@ export function avisoDePermanencia(meses: number): string | null {
     `Ejemplo: si contratas 5 años y te vas a los 2, quedan 3 sin usar y se te devuelve ` +
     `la mitad de esos 3.`
   );
+}
+
+/** ¿El plan está en oferta? Hay oferta cuando el precio de lista supera lo que se cobra. */
+export function enOferta(p: { priceMonthly: string; regularPrice?: string | null }): boolean {
+  return p.regularPrice != null && Number(p.regularPrice) > Number(p.priceMonthly);
+}
+
+/** Porcentaje de ahorro de la oferta, entero (0 si no hay oferta). */
+export function ahorroPct(p: { priceMonthly: string; regularPrice?: string | null }): number {
+  if (!enOferta(p)) return 0;
+  return Math.round((1 - Number(p.priceMonthly) / Number(p.regularPrice)) * 100);
+}
+
+// ── Vencimiento del plan pagado ────────────────────────────────
+
+/** Desde cuántos días antes del fin se avisa (visual y por correo). */
+export const AVISO_DIAS = 15;
+/** Días tras el vencimiento en que aún se puede operar (con aviso molesto). Luego, sólo lectura. */
+export const GRACIA_DIAS = 7;
+
+export type FasePeriodo = 'al_dia' | 'por_vencer' | 'gracia' | 'solo_lectura';
+
+export interface PeriodoPagado {
+  fase: FasePeriodo;
+  /** Días hasta el fin (redondeado hacia arriba). Negativo = ya venció. */
+  diasRestantes: number;
+  /** Días enteros desde que venció (0 si no ha vencido). */
+  diasVencido: number;
+  /** Días de gracia que quedan antes de pasar a sólo lectura (0 si no aplica). */
+  graciaRestante: number;
+  /** Se pueden hacer acciones que modifican datos. */
+  puedeEscribir: boolean;
+}
+
+/**
+ * Estado del periodo PAGADO de un negocio. Se deduce de las fechas, sin cron: igual que
+ * `trial_expired`, un cron que no corre un día dejaría entrar gratis a todo el mundo.
+ *
+ * Sólo aplica a planes pagados (`status: 'active'` con `currentPeriodEnd`). La prueba
+ * gratis, los estados suspendidos/cancelados y el plan interno (sin fecha) devuelven
+ * `null`: tienen sus propias reglas.
+ */
+export function periodoPagado(
+  sub: { status: string; currentPeriodEnd: string | Date | null },
+  now: Date = new Date(),
+): PeriodoPagado | null {
+  if (sub.status !== 'active' || !sub.currentPeriodEnd) return null;
+  const fin =
+    sub.currentPeriodEnd instanceof Date ? sub.currentPeriodEnd : new Date(sub.currentPeriodEnd);
+  const ms = fin.getTime() - now.getTime();
+  const diasRestantes = Math.ceil(ms / 86_400_000);
+  if (ms >= 0) {
+    return {
+      fase: diasRestantes <= AVISO_DIAS ? 'por_vencer' : 'al_dia',
+      diasRestantes,
+      diasVencido: 0,
+      graciaRestante: 0,
+      puedeEscribir: true,
+    };
+  }
+  const diasVencido = Math.floor(-ms / 86_400_000);
+  const enGracia = diasVencido < GRACIA_DIAS;
+  return {
+    fase: enGracia ? 'gracia' : 'solo_lectura',
+    diasRestantes,
+    diasVencido,
+    graciaRestante: enGracia ? GRACIA_DIAS - diasVencido : 0,
+    puedeEscribir: enGracia,
+  };
 }

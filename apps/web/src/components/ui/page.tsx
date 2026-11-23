@@ -12,7 +12,11 @@ import { cn } from '@/lib/utils';
 
 /** Contenedor de página: el mismo aire y el mismo ritmo vertical en todas. */
 export function Page({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn('flex flex-col gap-4 p-4', className)}>{children}</div>;
+  return (
+    <div className={cn('flex flex-col gap-4 p-4 motion-safe:animate-rise', className)}>
+      {children}
+    </div>
+  );
 }
 
 /**
@@ -38,7 +42,7 @@ export function PageHeader({
           <p className="mt-1 text-[13px] leading-relaxed text-muted">{descripcion}</p>
         )}
       </div>
-      {acciones && <div className="flex shrink-0 flex-wrap gap-2">{acciones}</div>}
+      {acciones && <div className="flex max-w-full min-w-0 flex-wrap gap-2">{acciones}</div>}
     </div>
   );
 }

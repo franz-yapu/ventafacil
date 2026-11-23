@@ -84,9 +84,16 @@ export async function crearNegocio(input: NuevoNegocio): Promise<NegocioCreado> 
       .returning();
     const businessId = biz!.id;
 
+    const [planFila] = await tx
+      .select({ priceMonthly: s.plan.priceMonthly })
+      .from(s.plan)
+      .where(eq(s.plan.code, planCode))
+      .limit(1);
     await tx.insert(s.subscription).values({
       businessId,
       planCode,
+      // El precio vigente al registrarse se le mantiene.
+      lockedPrice: planFila?.priceMonthly ?? null,
       status: 'trial',
       trialEndsAt: new Date(Date.now() + TRIAL_DAYS * 86_400_000),
     });

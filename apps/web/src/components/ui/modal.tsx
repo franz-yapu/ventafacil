@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import { useEffect, useRef, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '@/lib/utils';
 
 /** Lo que se puede enfocar con el tabulador dentro de la hoja. */
@@ -12,11 +13,15 @@ interface ModalProps {
   title?: string;
   children: ReactNode;
   className?: string;
+  /** Acciones fijas abajo (p. ej. «Guardar»): siempre a la vista aunque el formulario sea largo. */
+  footer?: ReactNode;
+  /** Se pinta en la página, como una sección (pestaña), sin fondo ni hoja flotante. */
+  inline?: boolean;
 }
 
 // Hoja/modal calcado del prototipo VentaFácil POS: fondo translúcido con desenfoque,
 // hoja #fbfbf9 pegada abajo en móvil (radio superior) y centrada en escritorio.
-export function Modal({ open, onClose, title, children, className }: ModalProps) {
+export function Modal({ open, onClose, title, children, className, footer, inline }: ModalProps) {
   const hoja = useRef<HTMLDivElement>(null);
   /**
    * `onClose` vive en una ref, y esto NO es un detalle de estilo.
@@ -48,13 +53,18 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
    * dar la vuelta al llegar al final, y devolver el foco a donde estaba al cerrar.
    */
   useEffect(() => {
-    if (!open) return;
+    // En modo página (pestaña) no hay hoja flotante: ni foco atrapado ni bloqueo de scroll.
+    if (!open || inline) return;
     const veniaDe = document.activeElement as HTMLElement | null;
 
     // Al primer campo si lo hay; si no, a la propia hoja, para que Escape funcione y el
     // lector de pantalla empiece por el título.
-    const primero = hoja.current?.querySelector<HTMLElement>(ENFOCABLES);
-    (primero ?? hoja.current)?.focus();
+    // Nunca al botón de cerrar: dejaba el primer campo sin foco y sin teclado.
+    const primero =
+      hoja.current?.querySelector<HTMLElement>(
+        'input:not([disabled]):not([readonly]), select:not([disabled]), textarea:not([disabled])',
+      ) ?? null;
+    (primero ?? hoja.current)?.focus({ preventScroll: true });
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') return cerrar.current();
@@ -85,10 +95,30 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
       document.body.style.overflow = overflow;
       veniaDe?.focus?.();
     };
-  }, [open]);
+  }, [open, inline]);
 
   if (!open) return null;
-  return (
+  if (inline) {
+    return (
+      <section
+        aria-label={title}
+        className="mx-auto w-full max-w-3xl rounded-theme border border-border bg-surface"
+      >
+        <h2 className="border-b border-border px-5 py-3.5 text-[17px] font-bold">{title}</h2>
+        <div className="p-5">{children}</div>
+      </section>
+    );
+  }
+  /*
+    Se monta en `document.body` con un portal, NO donde se escribió.
+
+    Las páginas entran con una animación que deja un `transform` en su contenedor, y un
+    elemento `fixed` dentro de un ancestro con `transform` ya no se coloca respecto a la
+    pantalla sino respecto a ese ancestro: la hoja salía corrida —con el título tapado por
+    la barra superior en un lado y fuera de la pantalla en otro— y los primeros campos no
+    se veían. Fuera del árbol de la página no hay ancestro que lo desplace.
+  */
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-end justify-center bg-[rgba(10,10,9,0.5)] p-0 backdrop-blur-[2px] sm:items-center sm:p-4"
       onClick={onClose}
@@ -100,28 +130,35 @@ export function Modal({ open, onClose, title, children, className }: ModalProps)
         aria-label={title}
         tabIndex={-1}
         className={cn(
-          'ds-modal max-h-[92vh] w-full max-w-md overflow-auto bg-surface shadow-[0_20px_50px_-20px_rgba(0,0,0,0.35)]',
-          // Radios derivados del que elige el negocio: si sube el radio, la hoja
-          // sube con él en vez de quedarse en un 20px que ya no pega con nada.
+          // `dvh`: el alto VISIBLE. Con `vh` la hoja medía lo de la ventana sin barras y en
+          // el móvil se metía debajo de la barra del navegador, tapando campos y botón.
+          'ds-modal flex max-h-[92vh] max-h-[92dvh] w-full max-w-md flex-col overflow-hidden bg-surface shadow-[0_20px_50px_-20px_rgba(0,0,0,0.35)]',
           'rounded-t-theme-lg animate-[vf-sheet_.22s_ease] sm:rounded-theme-lg',
           className,
         )}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="p-5">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-[17px] font-bold">{title}</h2>
-            <button
-              onClick={onClose}
-              className="flex p-0.5 text-muted hover:text-fg"
-              aria-label="Cerrar"
-            >
-              <X size={20} />
-            </button>
-          </div>
-          {children}
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3.5">
+          <h2 className="text-[17px] font-bold">{title}</h2>
+          <button
+            onClick={onClose}
+            className="-mr-2 flex h-11 w-11 items-center justify-center text-muted hover:text-fg"
+            aria-label="Cerrar"
+          >
+            <X size={20} />
+          </button>
         </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-5">{children}</div>
+        {footer && (
+          <div
+            className="shrink-0 border-t border-border bg-surface px-5 pt-3"
+            style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+          >
+            {footer}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

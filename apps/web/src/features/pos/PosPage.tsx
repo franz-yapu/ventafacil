@@ -23,6 +23,10 @@ import { Button } from '@/components/ui/button';
 import { Miniatura } from '@/features/products/FotoDeProducto';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { LIMITES } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { largo, requerido, telefono, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -142,8 +146,16 @@ export function PosPage() {
    */
   const topePct = user?.role === 'seller' ? (business?.maxSellerDiscountPct ?? 0) : 100;
   const topeDescuento = (subtotal * topePct) / 100;
-  const pedido = Math.max(0, Number(discount) || 0);
+  const pedido = Math.max(0, Number(discount.replace(',', '.')) || 0);
   const discountNum = Math.min(pedido, subtotal, topeDescuento);
+  const errorDescuento = (() => {
+    const t = discount.trim();
+    if (t === '' || t === '0') return null;
+    if (t.startsWith('-')) return 'El descuento no puede ser negativo';
+    if (!/^\d+([.,]\d{1,2})?$/.test(t)) return 'Usa solo números, hasta 2 decimales';
+    if (Number(t.replace(',', '.')) > subtotal) return 'No puede superar el subtotal';
+    return null;
+  })();
   const descuentoRecortado = pedido > topeDescuento + 0.005;
   const total = subtotal - discountNum;
 
@@ -406,7 +418,7 @@ export function PosPage() {
     // ejecutar en cuanto algo lanzara por encima.
   }
 
-  const canCheckout = cart.length > 0 && !!activeLocation && !busy;
+  const canCheckout = cart.length > 0 && !!activeLocation && !busy && !errorDescuento;
 
   /**
    * La regla de cuándo se pregunta vive en `confirmar.ts`, fuera del componente.
@@ -432,6 +444,7 @@ export function PosPage() {
 
   return (
     <div className="grid gap-4 p-4 md:grid-cols-[1fr_360px]">
+      <h1 className="sr-only">Vender</h1>
       <div className="flex flex-col gap-3">
         {!online && (
           <div className="flex items-center gap-2.5 rounded-theme border border-warning/25 bg-warning-bg px-3.5 py-2.5 text-sm font-semibold text-warning">
@@ -518,25 +531,48 @@ export function PosPage() {
                 disabled={out}
                 title={out ? `${p.name} · sin existencias en esta sucursal` : undefined}
                 className={cn(
-                  'flex min-h-[112px] flex-col gap-2 rounded-theme border bg-surface p-3.5 text-left shadow-card transition',
+                  'flex min-h-[112px] gap-3 rounded-theme border bg-surface p-3.5 text-left shadow-card transition',
                   out
                     ? 'cursor-not-allowed opacity-55'
                     : 'hover:shadow-card-hover active:scale-[0.98]',
                   cardBorder,
                 )}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="font-mono text-[10px] font-medium text-muted">{p.sku}</span>
-                  {remaining != null && (
-                    <span
-                      className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-bold ${textCol}`}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
-                      {stockLabel}
-                    </span>
-                  )}
-                </div>
                 {/*
+                  La foto va a la IZQUIERDA, en un cuadro pequeño, y no como banda arriba.
+
+                  La banda ancha dejaba huecos a los lados con productos altos o largos y
+                  gastaba 80 px de alto por tarjeta. Un cuadro de 64 px con la foto ENTERA
+                  (`object-contain`, que ahora llega con su proporción) ocupa menos, no
+                  recorta y deja ver más productos por pantalla. Sin foto, la tarjeta es la
+                  de siempre: el texto ocupa todo el ancho.
+                */}
+                <div className="flex min-w-0 flex-1 flex-col gap-2">
+                  <div
+                    className={
+                      p.imageUrl
+                        ? 'flex items-center gap-2'
+                        : 'flex items-start justify-between gap-2'
+                    }
+                  >
+                    {p.imageUrl && (
+                      <Miniatura url={p.imageUrl} className="h-12 w-12 shrink-0" icono={18} />
+                    )}
+                    <div className={p.imageUrl ? 'flex min-w-0 flex-col gap-1' : 'contents'}>
+                      <span className="truncate font-mono text-[10px] font-medium text-muted">
+                        {p.sku}
+                      </span>
+                      {remaining != null && (
+                        <span
+                          className={`inline-flex items-center gap-1.5 whitespace-nowrap text-[10px] font-bold ${textCol}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
+                          {stockLabel}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  {/*
                   La foto, sólo si en este catálogo hay fotos.
 
                   Reservarle sitio siempre dejaría una banda gris de 80 px en cada tarjeta
@@ -548,7 +584,7 @@ export function PosPage() {
                   Así que la banda entra o no entra para TODA la rejilla, y quien nunca suba
                   una foto seguirá viendo exactamente el POS que tiene hoy.
                 */}
-                {/*
+                  {/*
                   La foto la lleva la tarjeta que la tiene, y punto.
 
                   Antes la banda era todo-o-nada para la rejilla entera, para que ninguna
@@ -561,13 +597,10 @@ export function PosPage() {
                   compacte. Las alturas quedan desiguales dentro de la rejilla; si al usarlo
                   molesta, volver atrás es cambiar esta línea.
                 */}
-                {p.imageUrl && (
-                  <Miniatura url={p.imageUrl} className="h-20 w-full rounded-theme" icono={20} />
-                )}
-                <span className="line-clamp-2 text-[15px] font-semibold leading-tight">
-                  {p.name}
-                </span>
-                {/*
+                  <span className="line-clamp-2 text-[15px] font-semibold leading-tight">
+                    {p.name}
+                  </span>
+                  {/*
                   La descripción, cuando la hay.
 
                   Ya estaba en la base y en la respuesta del catálogo; sólo no se enseñaba.
@@ -576,14 +609,15 @@ export function PosPage() {
                   y quien atiende no es quien compró la mercadería. Una línea, recortada:
                   la tarjeta tiene que seguir siendo una diana grande para el dedo.
                 */}
-                {p.description ? (
-                  <span className="line-clamp-1 flex-1 text-[12px] leading-tight text-muted">
-                    {p.description}
-                  </span>
-                ) : (
-                  <span className="flex-1" />
-                )}
-                <span className="text-[17px] font-bold">{money(p.price)}</span>
+                  {p.description ? (
+                    <span className="line-clamp-1 flex-1 text-[12px] leading-tight text-muted">
+                      {p.description}
+                    </span>
+                  ) : (
+                    <span className="flex-1" />
+                  )}
+                  <span className="text-[17px] font-bold">{money(p.price)}</span>
+                </div>
               </button>
             );
           })}
@@ -618,8 +652,13 @@ export function PosPage() {
           )}
           <div className="flex-1" />
           {cart.length > 0 && (
-            <button onClick={() => setCart([])} className="text-sm text-muted hover:text-fg">
-              Vaciar
+            <button
+              onClick={() => setCart([])}
+              title="Quitar todo del carrito"
+              className="inline-flex h-9 items-center gap-1.5 rounded-theme border border-danger/30 bg-danger-bg px-3 text-sm font-bold text-danger transition-[transform,background-color] hover:bg-danger/15 active:scale-[.97]"
+            >
+              <Trash2 size={15} />
+              Vaciar carrito
             </button>
           )}
           <button
@@ -746,6 +785,7 @@ export function PosPage() {
                 inputMode="decimal"
                 value={online ? discount : '0'}
                 disabled={!online}
+                aria-invalid={errorDescuento ? true : undefined}
                 onChange={(e) => setDiscount(e.target.value)}
                 className="h-9 w-28 text-right"
                 title={online ? '' : 'Los descuentos requieren conexión'}
@@ -753,6 +793,11 @@ export function PosPage() {
             </div>
           )}
 
+          {errorDescuento && (
+            <p role="alert" className="text-[12px] text-danger">
+              {errorDescuento}
+            </p>
+          )}
           {descuentoRecortado && (
             <p className="text-[12px] text-warning">
               Como vendedor puedes descontar hasta el {topePct}% ({money(topeDescuento)}). Para más,
@@ -885,6 +930,10 @@ function NewCustomerModal({
   const qc = useQueryClient();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const vc = useValidacion(
+    { name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)), phone: telefono },
+    { name, phone },
+  );
   const create = useMutation({
     mutationFn: () =>
       api.post<Customer>('/customers', { name: name.trim(), phone: phone.trim() || null }),
@@ -896,14 +945,22 @@ function NewCustomerModal({
   return (
     <Modal open onClose={onClose} title="Nuevo cliente">
       <div className="flex flex-col gap-3">
-        <label className="text-sm text-muted">Nombre</label>
-        <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-        <label className="text-sm text-muted">Teléfono (opcional)</label>
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
-        <Button
-          disabled={name.trim().length < 1 || create.isPending}
-          onClick={() => create.mutate()}
-        >
+        <Campo etiqueta="Nombre" error={vc.ver('name')}>
+          <Input
+            value={name}
+            onBlur={() => vc.tocar('name')}
+            onChange={(e) => setName(e.target.value)}
+            autoFocus
+          />
+        </Campo>
+        <Campo etiqueta="Teléfono" opcional error={vc.ver('phone')}>
+          <Input
+            value={phone}
+            onBlur={() => vc.tocar('phone')}
+            onChange={(e) => setPhone(e.target.value)}
+          />
+        </Campo>
+        <Button disabled={create.isPending} onClick={() => vc.intentar() && create.mutate()}>
           {create.isPending ? 'Guardando…' : 'Guardar'}
         </Button>
       </div>

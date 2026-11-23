@@ -52,16 +52,16 @@ export function AvisoDeTerminos() {
   if (!debeAceptarTerminos(business.termsVersion)) return null;
 
   return (
-    <div className="no-print flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-warning-bg px-4 py-2 text-[13px] text-warning">
-      <ScrollText size={15} className="shrink-0" />
+    <div className="no-print flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-surface px-4 py-2 text-[13px] text-fg">
+      <ScrollText size={15} className="shrink-0 text-primary" />
       <span>Actualizamos los términos del servicio y la política de privacidad.</span>
-      <Link to="/terminos" className="font-bold underline underline-offset-2">
+      <Link to="/terminos" className="font-bold text-primary underline underline-offset-2">
         Leerlos
       </Link>
       <button
         onClick={() => aceptar.mutate()}
         disabled={aceptar.isPending}
-        className="font-bold underline underline-offset-2 disabled:opacity-60"
+        className="font-bold text-primary underline underline-offset-2 disabled:opacity-60"
       >
         {aceptar.isPending ? 'Guardando…' : 'Entendido'}
       </button>

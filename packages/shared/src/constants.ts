@@ -66,3 +66,21 @@ export function etiquetaDePago(codigo: string): string {
 export function etiquetaDeEstado(codigo: string): string {
   return SALE_STATUS_LABELS[codigo as keyof typeof SALE_STATUS_LABELS] ?? codigo;
 }
+
+/**
+ * Límites de los campos de texto e importes. UNA sola fuente: la pantalla avisa en el
+ * campo y el servidor los exige, con los mismos números.
+ */
+export const LIMITES = {
+  nombreMax: 120,
+  descripcionMax: 500,
+  direccionMax: 200,
+  notaMax: 300,
+  correoMax: 200,
+  usuarioMax: 40,
+  claveMax: 100,
+  /** Tope de un importe unitario (precio, costo), en bolivianos. */
+  importeMax: 9999.99,
+  /** Tope de una cantidad de unidades. */
+  cantidadMax: 999999,
+} as const;

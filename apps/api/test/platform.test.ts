@@ -47,7 +47,7 @@ async function darPlan(businessId: string, planCode: string, status: string) {
     .values({ businessId, planCode, status: status as never })
     .onConflictDoUpdate({
       target: schema.subscription.businessId,
-      set: { planCode, status: status as never },
+      set: { planCode, status: status as never, lockedPrice: null },
     });
   clearAccessCache();
 }
@@ -339,8 +339,8 @@ describe('cambio de plan', () => {
 
 describe('métricas', () => {
   it('el MRR suma sólo lo que está al día; lo moroso va aparte', async () => {
-    await darPlan(a.businessId, 'basico', 'active'); // 149
-    await darPlan(b.businessId, 'pro', 'past_due'); // 299, en riesgo
+    await darPlan(a.businessId, 'basico', 'active'); // 74.50
+    await darPlan(b.businessId, 'pro', 'past_due'); // 149.50, en riesgo
 
     const res = await app.inject({
       method: 'GET',
@@ -349,8 +349,8 @@ describe('métricas', () => {
     });
     expect(res.statusCode).toBe(200);
     const m = res.json().data;
-    expect(m.mrr).toBe('149.00');
-    expect(m.mrrEnRiesgo).toBe('299.00');
+    expect(m.mrr).toBe('74.50');
+    expect(m.mrrEnRiesgo).toBe('149.50');
     expect(m.porEstado.active).toBe(1);
     expect(m.porEstado.past_due).toBe(1);
     expect(m.totalNegocios).toBe(2);
@@ -998,7 +998,7 @@ describe('contratación por más de un mes', () => {
 
     expect(sub!.billingMonths).toBe(60);
     // 149.00 × 60 con 30% de descuento.
-    expect(sub!.billedAmount).toBe('6258.00');
+    expect(sub!.billedAmount).toBe('3129.00');
     expect(sub!.cycleStartedAt).toBeTruthy();
     // El vencimiento sale del ciclo: nadie tiene que acordarse de ponerlo a mano dentro
     // de cinco años.
@@ -1014,11 +1014,11 @@ describe('contratación por más de un mes', () => {
     });
     expect(res.statusCode).toBe(200);
     const d = res.json().data;
-    expect(d.pagado).toBe('6258.00');
+    expect(d.pagado).toBe('3129.00');
     expect(d.mesesContratados).toBe(60);
     // Recién contratado: no ha usado nada, así que le tocaría la mitad de todo.
     expect(d.mesesSinUsar).toBe(60);
-    expect(d.devolucion).toBe('3129.00');
+    expect(d.devolucion).toBe('1564.50');
   });
 
   it('CONTRATAR ACTIVA la suscripción: el que paga no puede quedarse bloqueado', async () => {
@@ -1140,5 +1140,74 @@ describe('contratación por más de un mes', () => {
       headers: auth(token()),
     });
     expect(res.json().data).toBeNull();
+  });
+});
+
+describe('catálogo de planes editable', () => {
+  const patch = (code: string, body: unknown) =>
+    app.inject({
+      method: 'PATCH',
+      url: `/api/v1/platform/plans/${code}`,
+      headers: auth(token()),
+      payload: body as never,
+    });
+
+  it('lista los planes con su oferta', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/platform/plans',
+      headers: auth(token()),
+    });
+    expect(res.statusCode).toBe(200);
+    const basico = res.json().data.find((p: { code: string }) => p.code === 'basico');
+    expect(basico.priceMonthly).toBe('74.50');
+    expect(basico.regularPrice).toBe('85.50');
+    expect(basico.maxLocations).toBe(2);
+  });
+
+  it('cambiar el precio NO toca a quien ya contrató (precio fijo), sí a los nuevos', async () => {
+    // `a` contrata Básico al precio actual; `b` está en Pro sin precio fijado
+    await darPlan(a.businessId, 'basico', 'active');
+    await darPlan(b.businessId, 'pro', 'active');
+    await db
+      .update(schema.subscription)
+      .set({ lockedPrice: '74.50' })
+      .where(eq(schema.subscription.businessId, a.businessId));
+    clearAccessCache();
+
+    const res = await patch('basico', { priceMonthly: '99.00', regularPrice: '120.00' });
+    expect(res.statusCode).toBe(200);
+
+    const m = await app.inject({
+      method: 'GET',
+      url: '/api/v1/platform/metrics',
+      headers: auth(token()),
+    });
+    // `a` sigue pagando 74.50 (+ b en Pro con su precio actual, sin lockedPrice)
+    expect(Number(m.json().data.mrr)).toBeCloseTo(74.5 + 149.5, 2);
+
+    const planes = await app.inject({ method: 'GET', url: '/api/v1/plans' });
+    const nuevo = planes.json().data.find((p: { code: string }) => p.code === 'basico');
+    expect(nuevo.priceMonthly).toBe('99.00'); // un cliente nuevo ve el precio nuevo
+
+    await patch('basico', { priceMonthly: '74.50', regularPrice: '85.50' });
+  });
+
+  it('el precio de lista debe superar al de oferta', async () => {
+    const res = await patch('basico', { priceMonthly: '100.00', regularPrice: '90.00' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('valida el precio y los cupos', async () => {
+    expect((await patch('basico', { priceMonthly: 'abc' })).statusCode).toBe(400);
+    expect((await patch('basico', { maxLocations: 0 })).statusCode).toBe(400);
+    expect((await patch('basico', {})).statusCode).toBe(400);
+    expect((await patch('no-existe', { priceMonthly: '10.00' })).statusCode).toBe(404);
+  });
+
+  it('los cupos nuevos rigen y null = sin límite', async () => {
+    expect((await patch('basico', { maxLocations: 5 })).statusCode).toBe(200);
+    expect((await patch('basico', { maxLocations: null })).statusCode).toBe(200);
+    await patch('basico', { maxLocations: 2 });
   });
 });

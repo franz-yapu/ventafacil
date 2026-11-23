@@ -76,21 +76,21 @@ describe('la preferencia guardada', () => {
     expect(leerModo()).toBe('oscuro');
   });
 
-  it('si está corrupta se cae a "auto" en vez de romper la app', async () => {
+  it('si está corrupta se cae a "claro" en vez de romper la app', async () => {
     // Puede pasar: una versión anterior guardó otra cosa, o alguien tocó el
-    // almacenamiento. Arrancar en automático es lo que menos sorprende.
+    // almacenamiento. Arrancar en claro es lo que menos sorprende (ver `leerModo`).
     for (const basura of ['dark', '', 'null', '{}']) {
       vi.resetModules();
       montarNavegador({ guardado: basura });
       const { leerModo } = await import('../src/theme/modo');
-      expect(leerModo(), basura).toBe('auto');
+      expect(leerModo(), basura).toBe('claro');
     }
   });
 
-  it('sin nada guardado, arranca en automático', async () => {
+  it('sin nada guardado, arranca en claro (no sigue al sistema sin que se pida)', async () => {
     montarNavegador();
     const { leerModo } = await import('../src/theme/modo');
-    expect(leerModo()).toBe('auto');
+    expect(leerModo()).toBe('claro');
   });
 });
 

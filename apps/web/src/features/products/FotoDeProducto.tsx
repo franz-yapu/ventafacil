@@ -128,7 +128,7 @@ export function FotoDeProducto({ actual, nueva, onNueva, quitar, onQuitar }: Pro
             ) : quitar && actual ? (
               'Se quitará al guardar.'
             ) : (
-              `Se recorta al cuadro y se reduce sola. Hasta ${MAX_ENTRADA_MB} MB.`
+              `Se reduce sola, sin recortarla. Hasta ${MAX_ENTRADA_MB} MB.`
             )}
           </p>
         </div>
@@ -209,8 +209,8 @@ export function Miniatura({
         /*
           `object-contain`, no `cover`.
 
-          Las fotos se guardan CUADRADAS (recorte central 800×800), pero este hueco no
-          siempre lo es: en la rejilla del POS es una banda ancha y baja. Con `cover` la
+          Las fotos se guardan con su proporción (lado mayor 800; las antiguas son cuadradas),
+          y este hueco es un cuadro pequeño. Con `cover` la
           foto se recortaba arriba y abajo y se ampliaba el centro — se veía un trozo del
           producto, grande y descuadrado. Con `contain` se ve entera y centrada, que es
           para lo que está ahí.

@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import { AuthHero, AuthHeroMovil, AuthLayout, AuthTabs } from '@/components/AuthHero';
+import { cn } from '@/lib/utils';
 import { Marca, NombreDeMarca } from '@/components/Marca';
-import { Card, CardContent } from '@/components/ui/card';
 
 /**
  * Marco común de las pantallas SIN sesión: login, registro, recuperar contraseña,
@@ -23,6 +24,7 @@ export function AuthShell({
   pie,
   ancho = 'sm',
   legal = true,
+  tab,
 }: {
   titulo: string;
   descripcion?: string;
@@ -32,29 +34,63 @@ export function AuthShell({
   ancho?: 'sm' | 'md';
   /** El registro ya pide aceptar los términos con una casilla: repetirlos abajo sobra. */
   legal?: boolean;
+  /** Muestra las pestañas Entrar / Crear cuenta. */
+  tab?: 'entrar' | 'registro';
 }) {
+  const cab = (
+    <>
+      <Marca size="md" inverso />
+      <NombreDeMarca className="text-[17px] font-semibold" />
+    </>
+  );
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-5 px-4 py-8">
-      <div className={ancho === 'md' ? 'w-full max-w-md' : 'w-full max-w-sm'}>
-        <div className="mb-5 flex flex-col items-center gap-3 text-center">
-          <Marca size="lg" />
-          <div>
-            <h1 className="text-[22px] font-bold tracking-[-0.02em]">
-              <NombreDeMarca />
-            </h1>
-            <p className="mt-0.5 text-[13px] text-muted">{descripcion ?? titulo}</p>
-          </div>
+    <AuthLayout
+      movil={
+        <AuthHeroMovil
+          cabecera={cab}
+          titular={
+            <>
+              Tu punto de venta, <span className="auth-accent">siempre listo.</span>
+            </>
+          }
+        />
+      }
+      hero={
+        <AuthHero
+          cabecera={cab}
+          titular={
+            <>
+              Tu punto de venta, <span className="auth-accent">siempre listo.</span>
+            </>
+          }
+          texto="Cobra, controla el inventario y cierra la caja desde cualquier equipo, con o sin internet."
+          puntos={[
+            'Funciona sin conexión',
+            'Caja e inventario cuadrados',
+            'Reportes en tiempo real',
+          ]}
+        />
+      }
+    >
+      <div
+        className={cn(
+          'w-full rounded-[24px] border border-border bg-surface p-6 shadow-card md:p-10',
+          ancho === 'md' ? 'max-w-[520px]' : 'max-w-[460px]',
+        )}
+      >
+        {tab && <AuthTabs actual={tab} />}
+        <div className="motion-safe:animate-rise">
+          <h1 className="auth-display text-[34px] leading-[1.05] md:text-[38px]">{titulo}</h1>
+          {descripcion && <p className="mb-5 mt-2 text-[15px] text-muted">{descripcion}</p>}
         </div>
 
-        <Card>
-          <CardContent className="p-5">{children}</CardContent>
-        </Card>
+        {children}
 
-        {pie && <div className="mt-4 text-center text-[13px] text-muted">{pie}</div>}
+        {pie && <div className="mt-5 text-center text-[13px] text-muted">{pie}</div>}
 
         {legal && <PieLegal />}
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 

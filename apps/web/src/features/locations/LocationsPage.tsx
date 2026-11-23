@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { LIMITES } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { largo, requerido, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { EmptyState, Page, PageHeader, SkeletonRows } from '@/components/ui/page';
 import { api, ApiError } from '@/lib/api';
@@ -24,9 +28,21 @@ export function LocationsPage() {
     queryFn: () => api.get<Location[]>('/locations'),
   });
 
+  const [errorCrear, setErrorCrear] = useState<string | null>(null);
+  const v = useValidacion(
+    {
+      name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      address: largo(0, LIMITES.direccionMax),
+    },
+    { name, address },
+  );
   const create = useMutation({
-    mutationFn: () => api.post('/locations', { name, address }),
+    mutationFn: () =>
+      api.post('/locations', { name: name.trim(), address: address.trim() || undefined }),
+    onError: (e) => setErrorCrear(e instanceof ApiError ? e.message : 'No se pudo guardar'),
     onSuccess: () => {
+      v.reiniciar();
+      setErrorCrear(null);
       qc.invalidateQueries({ queryKey: ['locations'] });
       setOpen(false);
       setName('');
@@ -194,11 +210,28 @@ export function LocationsPage() {
 
       <Modal open={open} onClose={() => setOpen(false)} title="Nueva ubicación">
         <div className="flex flex-col gap-3">
-          <label className="text-sm text-muted">Nombre</label>
-          <Input value={name} onChange={(e) => setName(e.target.value)} />
-          <label className="text-sm text-muted">Dirección</label>
-          <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-          <Button disabled={name.length < 1 || create.isPending} onClick={() => create.mutate()}>
+          <Campo etiqueta="Nombre" error={v.ver('name')}>
+            <Input
+              value={name}
+              onBlur={() => v.tocar('name')}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </Campo>
+          <Campo etiqueta="Dirección" opcional error={v.ver('address')}>
+            <Input
+              value={address}
+              onBlur={() => v.tocar('address')}
+              onChange={(e) => setAddress(e.target.value)}
+            />
+          </Campo>
+          {errorCrear && <p className="text-sm text-danger">{errorCrear}</p>}
+          <Button
+            disabled={create.isPending}
+            onClick={() => {
+              setErrorCrear(null);
+              if (v.intentar()) create.mutate();
+            }}
+          >
             Guardar
           </Button>
         </div>

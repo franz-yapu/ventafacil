@@ -11,7 +11,8 @@ const buttonVariants = cva(
     variants: {
       variant: {
         primary: 'bg-primary text-primary-fg font-bold hover:opacity-90',
-        secondary: 'bg-secondary text-secondary-fg hover:opacity-90',
+        // Tonal y neutro: la acción secundaria no compite con la principal (60-30-10: un solo acento).
+        secondary: 'bg-fg/[0.08] text-fg hover:bg-fg/[0.14]',
         outline: 'border border-field bg-surface text-fg hover:bg-muted/10',
         ghost: 'text-fg hover:bg-muted/10',
         danger: 'border border-danger/30 bg-danger-bg text-danger hover:bg-danger/10',

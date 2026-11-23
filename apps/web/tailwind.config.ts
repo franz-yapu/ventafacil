@@ -26,8 +26,10 @@ import type { Config } from 'tailwindcss';
  */
 const token =
   (nombre: string) =>
-  ({ opacityValue }: { opacityValue?: string }) =>
-    opacityValue === undefined || opacityValue.includes('var(')
+  ({ opacityValue }: { opacityValue?: string | number }) =>
+    // Los degradados (`from-x`) piden el color con alfa NUMÉRICO 0 para el extremo
+    // transparente; `includes` sólo existe en strings.
+    opacityValue === undefined || String(opacityValue).includes('var(')
       ? `var(${nombre})`
       : `color-mix(in srgb, var(${nombre}) calc(${opacityValue} * 100%), transparent)`;
 
@@ -36,6 +38,17 @@ export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   theme: {
     extend: {
+      // Entrada de las partes de una pantalla: suben un poco y aparecen. El retraso
+      // escalonado sale de `--d`; con movimiento reducido no hay animación (motion-safe).
+      keyframes: {
+        rise: {
+          from: { opacity: '0', transform: 'translateY(12px)' },
+          to: { opacity: '1', transform: 'none' },
+        },
+      },
+      animation: {
+        rise: 'rise 520ms cubic-bezier(0.23, 1, 0.32, 1) both',
+      },
       colors: {
         primary: {
           DEFAULT: token('--color-primary'),
@@ -49,6 +62,13 @@ export default {
           DEFAULT: token('--color-secondary'),
           fg: token('--color-secondary-fg'),
           soft: token('--color-secondary-soft'),
+        },
+        nav: {
+          DEFAULT: token('--color-nav'),
+          fg: token('--color-nav-fg'),
+          muted: token('--color-nav-muted'),
+          line: token('--color-nav-line'),
+          hover: token('--color-nav-hover'),
         },
         bg: token('--color-bg'),
         surface: token('--color-surface'),

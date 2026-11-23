@@ -21,7 +21,14 @@ const abortos: string[] = [];
 
 beforeEach(() => {
   abortos.length = 0;
-  localStorage.clear();
+  // Node reciente trae su propio `localStorage` (vacío sin archivo) que tapa el de jsdom.
+  const datos = new Map<string, string>();
+  vi.stubGlobal('localStorage', {
+    getItem: (k: string) => datos.get(k) ?? null,
+    setItem: (k: string, v: string) => void datos.set(k, String(v)),
+    removeItem: (k: string) => void datos.delete(k),
+    clear: () => datos.clear(),
+  });
   vi.useFakeTimers();
 });
 

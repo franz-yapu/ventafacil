@@ -5,6 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Page, PageHeader } from '@/components/ui/page';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { LIMITES } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { largo, requerido, todas, type Regla } from '@/lib/validar';
 import { api, ApiError } from '@/lib/api';
 import { aplicarColorDeMarca, textoSobre } from '@/lib/color';
 import type { BusinessConfig } from '@/theme/ThemeProvider';
@@ -119,6 +123,35 @@ export function SettingsPage() {
     };
   }, [savedTheme]);
 
+  const hex: Regla = (x) =>
+    /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(x.trim()) ? null : 'Usa un color como #2f68d8';
+  const v = useValidacion(
+    {
+      name: todas(requerido('El nombre del negocio'), largo(1, LIMITES.nombreMax)),
+      appName: largo(0, LIMITES.nombreMax),
+      receiptFooter: largo(0, LIMITES.notaMax),
+      currency: (x) =>
+        /^[A-Za-z]{2,5}$/.test(x.trim()) ? null : 'Usa el código de la moneda (ej. BOB)',
+      discount: (x) => {
+        const n = Number(x);
+        return x.trim() === '' || !Number.isFinite(n) || n < 0 || n > 100 || !Number.isInteger(n)
+          ? 'Un número entero entre 0 y 100'
+          : null;
+      },
+      primary: hex,
+      secondary: hex,
+    },
+    {
+      name: form.name,
+      appName: form.appName,
+      receiptFooter: form.receiptFooter,
+      currency: form.currency,
+      discount: String(form.maxSellerDiscountPct),
+      primary: form.primary,
+      secondary: form.secondary,
+    },
+  );
+
   const save = useMutation({
     mutationFn: () =>
       api.patch('/business', {
@@ -167,13 +200,24 @@ export function SettingsPage() {
           <h2 className="text-lg font-medium">Identidad</h2>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <label className="text-sm text-muted">Nombre del negocio</label>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <label className="text-sm text-muted">Nombre de la app (en recibos y cabecera)</label>
-          <Input
-            value={form.appName}
-            onChange={(e) => setForm({ ...form, appName: e.target.value })}
-          />
+          <Campo etiqueta="Nombre del negocio" error={v.ver('name')}>
+            <Input
+              value={form.name}
+              onBlur={() => v.tocar('name')}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+            />
+          </Campo>
+          <Campo
+            etiqueta="Nombre de la app (en recibos y cabecera)"
+            opcional
+            error={v.ver('appName')}
+          >
+            <Input
+              value={form.appName}
+              onBlur={() => v.tocar('appName')}
+              onChange={(e) => setForm({ ...form, appName: e.target.value })}
+            />
+          </Campo>
 
           <label className="text-sm text-muted">Logo</label>
           <div className="flex items-center gap-3">
@@ -264,12 +308,16 @@ export function SettingsPage() {
             <ColorField
               label="Primario"
               value={form.primary}
-              onChange={(v) => setForm({ ...form, primary: v })}
+              error={v.ver('primary')}
+              onBlur={() => v.tocar('primary')}
+              onChange={(c) => setForm({ ...form, primary: c })}
             />
             <ColorField
               label="Secundario"
               value={form.secondary}
-              onChange={(v) => setForm({ ...form, secondary: v })}
+              error={v.ver('secondary')}
+              onBlur={() => v.tocar('secondary')}
+              onChange={(c) => setForm({ ...form, secondary: c })}
             />
           </div>
 
@@ -324,19 +372,21 @@ export function SettingsPage() {
           <h2 className="text-lg font-medium">Recibo y moneda</h2>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <label className="text-sm text-muted">Pie del recibo</label>
-          <Input
-            value={form.receiptFooter}
-            onChange={(e) => setForm({ ...form, receiptFooter: e.target.value })}
-          />
+          <Campo etiqueta="Pie del recibo" opcional error={v.ver('receiptFooter')}>
+            <Input
+              value={form.receiptFooter}
+              onBlur={() => v.tocar('receiptFooter')}
+              onChange={(e) => setForm({ ...form, receiptFooter: e.target.value })}
+            />
+          </Campo>
           <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-sm text-muted">Moneda</label>
+            <Campo etiqueta="Moneda" error={v.ver('currency')}>
               <Input
                 value={form.currency}
-                onChange={(e) => setForm({ ...form, currency: e.target.value })}
+                onBlur={() => v.tocar('currency')}
+                onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })}
               />
-            </div>
+            </Campo>
             {/*
               La "Tasa de impuesto (%)" se quitó de aquí a propósito.
 
@@ -352,27 +402,34 @@ export function SettingsPage() {
               pero deja de prometerse en pantalla. Si algún día se implementa de verdad,
               el trabajo está en la venta, el recibo, los reportes y el arqueo, no aquí.
             */}
-            <div>
-              <label className="text-sm text-muted">Descuento máximo del vendedor (%)</label>
+            <Campo
+              etiqueta="Descuento máximo del vendedor (%)"
+              ayuda="Cuánto puede rebajar un vendedor sin permiso. En 0, sólo el administrador descuenta. Tú no tienes tope."
+              error={v.ver('discount')}
+            >
               <Input
+                onBlur={() => v.tocar('discount')}
                 type="number"
                 min="0"
                 max="100"
                 value={form.maxSellerDiscountPct}
                 onChange={(e) => setForm({ ...form, maxSellerDiscountPct: Number(e.target.value) })}
               />
-              <p className="mt-1 text-xs text-muted">
-                Cuánto puede rebajar un vendedor sin permiso. En 0, sólo el administrador descuenta.
-                Tú no tienes tope.
-              </p>
-            </div>
+            </Campo>
           </div>
         </CardContent>
       </Card>
 
       {error && <p className="text-sm text-danger">{error}</p>}
       <div className="flex items-center gap-3">
-        <Button disabled={save.isPending} onClick={() => save.mutate()}>
+        <Button
+          disabled={save.isPending}
+          onClick={() => {
+            setError(null);
+            if (!v.intentar()) return setError('Corrige los campos marcados en rojo.');
+            save.mutate();
+          }}
+        >
           {save.isPending ? 'Guardando…' : 'Guardar cambios'}
         </Button>
         {saved && <span className="text-sm text-success">✓ Guardado</span>}
@@ -385,10 +442,14 @@ function ColorField({
   label,
   value,
   onChange,
+  error,
+  onBlur,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
+  error?: string;
+  onBlur?: () => void;
 }) {
   return (
     <div className="flex flex-col gap-1">
@@ -400,8 +461,19 @@ function ColorField({
           onChange={(e) => onChange(e.target.value)}
           className="h-10 w-14 rounded border border-field"
         />
-        <Input value={value} onChange={(e) => onChange(e.target.value)} className="w-28" />
+        <Input
+          value={value}
+          onBlur={onBlur}
+          aria-invalid={error ? true : undefined}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-28"
+        />
       </div>
+      {error && (
+        <span role="alert" className="text-xs text-danger">
+          {error}
+        </span>
+      )}
     </div>
   );
 }

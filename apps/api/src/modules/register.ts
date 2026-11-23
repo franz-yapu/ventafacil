@@ -1,5 +1,11 @@
 import { crearNegocio, slugDisponible } from '@ventafacil/db';
-import { MENSAJE_SLUG, registerSchema, TRIAL_DAYS, validarSlug } from '@ventafacil/shared';
+import {
+  MENSAJE_SLUG,
+  notaDominio,
+  registerSchema,
+  TRIAL_DAYS,
+  validarSlug,
+} from '@ventafacil/shared';
 import argon2 from 'argon2';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
@@ -84,7 +90,7 @@ export async function registerRoutes(app: FastifyInstance) {
         adminEmail: email,
         // El esquema ya exige `acceptTerms: true`, así que llegar aquí implica que se
         // aceptaron; se pasa explícito para que quede claro de dónde sale la constancia.
-        aceptaTerminos: d.acceptTerms,
+        aceptaTerminos: true,
       });
     } catch (e) {
       // Dos altas simultáneas con el mismo slug: la segunda choca contra el índice
@@ -114,7 +120,10 @@ export async function registerRoutes(app: FastifyInstance) {
         text:
           `Hola ${d.adminName.trim()}:\n\n` +
           `Tu negocio "${d.businessName.trim()}" ya está listo en VentaFácil.\n\n` +
-          `Entra aquí: ${urlDelNegocio(slug)}\n` +
+          `Entra aquí: ${urlDelNegocio(slug)}\n\n` +
+          `Cómo se creó tu dirección:\n${notaDominio(slug, env.appDomain)
+            .map((l) => `- ${l}`)
+            .join('\n')}\n\n` +
           `Tu usuario: ${d.username.toLowerCase().trim()}\n\n` +
           `Confirma tu correo para poder recuperar la contraseña si algún día la olvidas:\n` +
           `${enlace}\n\n` +

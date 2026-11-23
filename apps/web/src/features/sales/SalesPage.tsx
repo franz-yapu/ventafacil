@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Exportar } from '@/components/Exportar';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { useValidacion } from '@/lib/useValidacion';
+import { largo, requerido, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { Select } from '@/components/ui/select';
 import { useAuth } from '@/features/auth/AuthProvider';
@@ -65,11 +68,22 @@ export function SalesPage() {
 
   const ventaAAnular = items.find((s) => s.id === cancelId) ?? null;
 
+  const vm = useValidacion(
+    {
+      reason: todas(
+        requerido('El motivo'),
+        (x) => (x.trim().length < 3 ? 'Mínimo 3 caracteres' : null),
+        largo(3, 200),
+      ),
+    },
+    { reason },
+  );
+
   const cancel = useMutation({
     mutationFn: () =>
       api.post<{ retiroRegistrado?: boolean; avisoCaja?: string | null }>(
         `/sales/${cancelId}/cancel`,
-        { reason, devolvioEfectivo: devolvio },
+        { reason: reason.trim(), devolvioEfectivo: devolvio },
       ),
     onSuccess: (r) => {
       qc.invalidateQueries({ queryKey: ['sales'] });
@@ -148,24 +162,24 @@ export function SalesPage() {
           <option value="completed">{SALE_STATUS_LABELS.completed}</option>
           <option value="cancelled">{SALE_STATUS_LABELS.cancelled}</option>
         </Select>
-        <div className="flex items-center gap-1">
-          <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+        <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:flex-nowrap">
+          <label className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted sm:flex-none">
             Desde
             <Input
               type="date"
               filter
-              className="max-w-[10rem]"
+              className="min-w-0 flex-1 sm:max-w-[10rem]"
               value={from}
               max={to || undefined}
               onChange={(e) => setFrom(e.target.value)}
             />
           </label>
-          <label className="flex shrink-0 items-center gap-2 text-sm text-muted">
+          <label className="flex min-w-0 flex-1 items-center gap-2 text-sm text-muted sm:flex-none">
             Hasta
             <Input
               type="date"
               filter
-              className="max-w-[10rem]"
+              className="min-w-0 flex-1 sm:max-w-[10rem]"
               value={to}
               min={from || undefined}
               onChange={(e) => setTo(e.target.value)}
@@ -345,12 +359,14 @@ export function SalesPage() {
           <p className="text-sm text-muted">
             La venta no se elimina; queda marcada como anulada y se registra en auditoría.
           </p>
-          <label className="text-sm text-muted">Motivo (obligatorio)</label>
-          <Input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Ej. producto devuelto"
-          />
+          <Campo etiqueta="Motivo (obligatorio)" error={vm.ver('reason')}>
+            <Input
+              value={reason}
+              onBlur={() => vm.tocar('reason')}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Ej. producto devuelto"
+            />
+          </Campo>
 
           {/*
             La devolución del efectivo, en el mismo gesto.
@@ -386,8 +402,8 @@ export function SalesPage() {
               pulsarlo. */}
           <Button
             variant="danger"
-            disabled={reason.length < 3 || cancel.isPending}
-            onClick={() => cancel.mutate()}
+            disabled={cancel.isPending}
+            onClick={() => vm.intentar() && cancel.mutate()}
           >
             Confirmar anulación
           </Button>

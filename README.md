@@ -15,23 +15,23 @@ aislados de los demás, sobre una sola plataforma (SaaS).
 - **Varias ubicaciones, un solo dueño.** Inventario, caja y reportes por sucursal y comparativos entre
   ellas.
 - **Cada cliente con su cara.** Colores, logo y textos configurables por negocio sin tocar código
-  (*white-label*).
+  (_white-label_).
 - **Control y trazabilidad.** Bitácora de auditoría (ventas, anulaciones, cambios de precio), caja por
   persona y roles de administrador y vendedor.
 - **Recibos.** Impresión térmica (58/80 mm) y PDF.
 
 ## Funcionalidades
 
-| Área | Detalle |
-| --- | --- |
-| Ventas (POS) | Venta rápida, offline, anulaciones, recibos con correlativo por negocio |
-| Inventario | Productos con atributos por rubro (JSONB), stock por ubicación |
-| Caja | Apertura/cierre y movimientos por persona |
-| Clientes y reportes | Reportes por ubicación, exportación, panel de indicadores configurable |
-| Multi-negocio | Registro self-service, identificación del negocio por subdominio, planes y suscripción con límites por plan |
-| Plataforma | Panel de operador para administrar la cartera de negocios (token y secreto distintos al de los negocios) |
-| Seguridad | JWT de acceso y refresco, límites de intentos y de tasa, **Row-Level Security** en PostgreSQL |
-| Operación | Health check real, avisos, CI en GitHub Actions, staging local en Docker |
+| Área                | Detalle                                                                                                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Ventas (POS)        | Venta rápida, offline, anulaciones, recibos con correlativo por negocio                                     |
+| Inventario          | Productos con atributos por rubro (JSONB), stock por ubicación                                              |
+| Caja                | Apertura/cierre y movimientos por persona                                                                   |
+| Clientes y reportes | Reportes por ubicación, exportación, panel de indicadores configurable                                      |
+| Multi-negocio       | Registro self-service, identificación del negocio por subdominio, planes y suscripción con límites por plan |
+| Plataforma          | Panel de operador para administrar la cartera de negocios (token y secreto distintos al de los negocios)    |
+| Seguridad           | JWT de acceso y refresco, límites de intentos y de tasa, **Row-Level Security** en PostgreSQL               |
+| Operación           | Health check real, avisos, CI en GitHub Actions, staging local en Docker                                    |
 
 ## Arquitectura
 

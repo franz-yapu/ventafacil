@@ -118,7 +118,12 @@ export async function persistSale(
   const nombreDeProducto = new Map<string, string>();
   if (productIds.length > 0) {
     const propios = await tx
-      .select({ id: schema.product.id, cost: schema.product.cost, name: schema.product.name })
+      .select({
+        id: schema.product.id,
+        cost: schema.product.cost,
+        name: schema.product.name,
+        price: schema.product.price,
+      })
       .from(schema.product)
       .where(
         and(inArray(schema.product.id, productIds), eq(schema.product.businessId, ctx.businessId)),
@@ -127,6 +132,21 @@ export async function persistSale(
     for (const p of propios) {
       costoDeProducto.set(p.id, p.cost);
       nombreDeProducto.set(p.id, p.name);
+    }
+    /*
+      El precio por línea lo manda el cliente (el POS vende sin conexión), pero un vendedor no
+      puede cobrar por debajo del catálogo: el descuento tiene su propio campo y su tope. Sin
+      esto, una petición manipulada vendía a 0.01 lo que cuesta 130. El administrador queda
+      exento porque puede fijar precios.
+    */
+    if (ctx.role !== 'admin') {
+      for (const it of input.items) {
+        if (!it.productId) continue;
+        const p = propios.find((x) => x.id === it.productId);
+        if (p && Number(it.unitPriceSnapshot) < Number(p.price)) {
+          throw new Error(`PRICE_LOW:${p.name}`);
+        }
+      }
     }
   }
 

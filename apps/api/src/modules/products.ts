@@ -1,5 +1,5 @@
 import { db, schema, withTenant, type TenantTx } from '@ventafacil/db';
-import { upsertProductSchema } from '@ventafacil/shared';
+import { parcialSinDefaults, upsertProductSchema } from '@ventafacil/shared';
 import { and, asc, desc, eq, ilike, inArray, or, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import type { FastifyInstance } from 'fastify';
@@ -13,6 +13,8 @@ const listQuery = z.object({
   search: z.string().optional(),
   categoryId: z.string().uuid().optional(),
   locationId: z.string().uuid().optional(),
+  /** `baja` = los dados de baja (sólo admin). Por defecto, sólo los activos. */
+  estado: z.enum(['activos', 'baja']).default('activos'),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 });
@@ -107,6 +109,8 @@ export async function productRoutes(app: FastifyInstance) {
       lo administra** (ver `canManage` más abajo). No para quién lo ve.
     */
     const filters = [eq(schema.product.businessId, user.businessId)];
+    // Los dados de baja los ve sólo un admin, y sólo si los pide.
+    filters.push(eq(schema.product.isActive, !(q.estado === 'baja' && user.role === 'admin')));
     const scope = viewScope(user);
     if (q.categoryId) filters.push(eq(schema.product.categoryId, q.categoryId));
     if (q.search) {
@@ -370,7 +374,7 @@ export async function productRoutes(app: FastifyInstance) {
     async (req, reply) => {
       const { id } = req.params as { id: string };
       const user = req.authUser!;
-      const parsed = upsertProductSchema.partial().safeParse(req.body);
+      const parsed = parcialSinDefaults(upsertProductSchema).safeParse(req.body);
       if (!parsed.success)
         return reply.code(400).send({ data: null, error: parsed.error.issues[0]?.message });
 
@@ -405,9 +409,75 @@ export async function productRoutes(app: FastifyInstance) {
           .returning(),
       );
 
-      const action = before.price !== after!.price ? 'price_change' : 'update';
+      const action =
+        before.isActive !== after!.isActive
+          ? after!.isActive
+            ? 'reactivate'
+            : 'deactivate'
+          : before.price !== after!.price
+            ? 'price_change'
+            : 'update';
       await app.audit(req, { action, entity: 'product', entityId: id, before, after });
       return reply.send({ data: after, error: null });
+    },
+  );
+
+  /**
+   * DELETE /products/:id — eliminar de verdad, sólo si no cuelga nada.
+   *
+   * Pensado para el error de tecleo: se creó mal, nadie lo vendió ni lo tiene en stock. Si
+   * tiene ventas o existencias NO se borra —se perdería historial o mercadería—: se
+   * responde qué cuelga y se sugiere la baja, que se puede deshacer.
+   */
+  app.delete(
+    '/products/:id',
+    { preHandler: [app.requireAuth, app.requireAdmin] },
+    async (req, reply) => {
+      const { id } = req.params as { id: string };
+      const user = req.authUser!;
+      const resultado = await withTenant(user.businessId, async (tx) => {
+        const [p] = await tx
+          .select()
+          .from(schema.product)
+          .where(and(eq(schema.product.id, id), eq(schema.product.businessId, user.businessId)))
+          .limit(1);
+        if (!p) return { estado: 'no-existe' as const };
+        if (!canActOnLocation(user, p.locationId)) return { estado: 'prohibido' as const };
+        const [ventas] = await tx
+          .select({ n: sql<number>`count(*)::int` })
+          .from(schema.saleItem)
+          .where(eq(schema.saleItem.productId, id));
+        const [stock] = await tx
+          .select({ n: sql<number>`coalesce(sum(${schema.inventory.quantity}), 0)::int` })
+          .from(schema.inventory)
+          .where(eq(schema.inventory.productId, id));
+        const detalle: string[] = [];
+        if ((ventas?.n ?? 0) > 0)
+          detalle.push(`${ventas!.n} ${ventas!.n === 1 ? 'venta' : 'ventas'}`);
+        if ((stock?.n ?? 0) > 0) detalle.push(`${stock!.n} unidades en stock`);
+        if (detalle.length > 0) return { estado: 'cuelga' as const, detalle };
+        await tx.delete(schema.product).where(eq(schema.product.id, id));
+        return { estado: 'borrado' as const, p };
+      });
+      if (resultado.estado === 'no-existe')
+        return reply.code(404).send({ data: null, error: 'Producto no encontrado' });
+      if (resultado.estado === 'prohibido')
+        return reply
+          .code(403)
+          .send({ data: null, error: 'Sólo puedes eliminar productos de tu ubicación' });
+      if (resultado.estado === 'cuelga') {
+        return reply.code(409).send({
+          data: { detalle: resultado.detalle },
+          error: `No se puede eliminar: tiene ${resultado.detalle.join(' y ')}. Dalo de baja en su lugar.`,
+        });
+      }
+      await app.audit(req, {
+        action: 'delete',
+        entity: 'product',
+        entityId: id,
+        before: resultado.p,
+      });
+      return reply.send({ data: { eliminado: true }, error: null });
     },
   );
 

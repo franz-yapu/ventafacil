@@ -33,14 +33,36 @@ function KpiCard({
   value,
   delta,
   tone = 'muted',
+  destacada = false,
 }: {
   label: string;
   value: string;
   delta?: ReactNode;
   tone?: 'up' | 'down' | 'muted';
+  /** La cifra que manda: lleva el color de la marca (el 10 % de la composición 60-30-10). */
+  destacada?: boolean;
 }) {
   const deltaColor =
     tone === 'up' ? 'text-success' : tone === 'down' ? 'text-danger' : 'text-muted';
+  if (destacada) {
+    const flecha = tone === 'up' ? '▲ ' : tone === 'down' ? '▼ ' : '';
+    return (
+      <Card className="border-transparent bg-primary text-primary-fg shadow-card-hover">
+        <CardContent className="p-[18px]">
+          <div className="text-xs font-semibold">{label}</div>
+          <div className="mt-1.5 text-[31px] font-extrabold leading-none tracking-[-0.03em]">
+            {value}
+          </div>
+          {delta != null && (
+            <div className="mt-2 text-xs font-bold">
+              {flecha}
+              {delta}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
   return (
     <Card>
       <CardContent className="p-[18px]">
@@ -64,6 +86,7 @@ export function KpiToday({ data }: { data: DashboardData }) {
   return (
     <KpiCard
       label="Ventas de hoy"
+      destacada
       value={money(data.kpi.todayTotal)}
       tone={pct == null ? 'muted' : pct >= 0 ? 'up' : 'down'}
       delta={

@@ -2,6 +2,7 @@ import { queryClient } from '@ventafacil/db';
 import { API_PREFIX } from '@ventafacil/shared';
 import { buildApp } from './app.js';
 import { env } from './env.js';
+import { programarAvisosDeVencimiento } from './lib/avisos-vencimiento.js';
 
 const app = await buildApp();
 
@@ -17,6 +18,9 @@ app
         ? '📧 Correo: driver de CONSOLA, no sale nada de esta máquina'
         : `📧 Correo por ${env.correoDriver}`,
     );
+    // Avisos de plan por vencer. Sólo con correo real: con el driver de consola no
+    // sale nada y la tarea reintentaría para siempre.
+    if (env.correoDriver !== 'consola') programarAvisosDeVencimiento(app.log);
   })
   .catch((err) => {
     app.log.error(err);

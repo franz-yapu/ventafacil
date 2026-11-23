@@ -6,6 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Campo } from '@/components/ui/field';
+import { LIMITES } from '@ventafacil/shared';
+import { useValidacion } from '@/lib/useValidacion';
+import { largo, requerido, telefono, todas } from '@/lib/validar';
 import { Modal } from '@/components/ui/modal';
 import { EmptyState, Page, PageHeader, SkeletonRows } from '@/components/ui/page';
 import { api, ApiError } from '@/lib/api';
@@ -264,6 +268,15 @@ function FormularioCliente({
   });
   const [error, setError] = useState<string | null>(null);
 
+  const v = useValidacion(
+    {
+      name: todas(requerido('El nombre'), largo(1, LIMITES.nombreMax)),
+      phone: telefono,
+      notes: largo(0, LIMITES.notaMax),
+    },
+    { name: form.name, phone: form.phone, notes: form.notes },
+  );
+
   const guardar = useMutation({
     mutationFn: () => {
       const cuerpo = {
@@ -281,26 +294,32 @@ function FormularioCliente({
   return (
     <Modal open onClose={onCerrar} title={esNuevo ? 'Nuevo cliente' : `Editar · ${cliente!.name}`}>
       <div className="flex flex-col gap-3">
-        <label className="text-sm text-muted">Nombre</label>
-        <Input
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          placeholder="Cómo lo llamas"
-        />
+        <Campo etiqueta="Nombre" error={v.ver('name')}>
+          <Input
+            value={form.name}
+            onBlur={() => v.tocar('name')}
+            onChange={(e) => setForm({ ...form, name: e.target.value })}
+            placeholder="Cómo lo llamas"
+          />
+        </Campo>
 
-        <label className="text-sm text-muted">Teléfono (opcional)</label>
-        <Input
-          type="tel"
-          value={form.phone}
-          onChange={(e) => setForm({ ...form, phone: e.target.value })}
-        />
+        <Campo etiqueta="Teléfono" opcional error={v.ver('phone')}>
+          <Input
+            type="tel"
+            value={form.phone}
+            onBlur={() => v.tocar('phone')}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
+          />
+        </Campo>
 
-        <label className="text-sm text-muted">Nota (opcional)</label>
-        <Input
-          value={form.notes}
-          onChange={(e) => setForm({ ...form, notes: e.target.value })}
-          placeholder="Lo que te sirva recordar"
-        />
+        <Campo etiqueta="Nota" opcional error={v.ver('notes')}>
+          <Input
+            value={form.notes}
+            onBlur={() => v.tocar('notes')}
+            onChange={(e) => setForm({ ...form, notes: e.target.value })}
+            placeholder="Lo que te sirva recordar"
+          />
+        </Campo>
 
         {/* Sólo al editar: un cliente nuevo nace activo, y ofrecer lo contrario sería
             ofrecer dar de alta a alguien que no aparecerá al vender. */}
@@ -317,9 +336,10 @@ function FormularioCliente({
 
         {error && <p className="text-sm text-danger">{error}</p>}
         <Button
-          disabled={form.name.trim().length < 1 || guardar.isPending}
+          disabled={guardar.isPending}
           onClick={() => {
             setError(null);
+            if (!v.intentar()) return;
             guardar.mutate();
           }}
         >
