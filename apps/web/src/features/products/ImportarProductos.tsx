@@ -118,7 +118,9 @@ export function ImportarProductos({ onDone }: { onDone: () => void }) {
       const libro = new ExcelJS.Workbook();
       if (/\.csv$/i.test(file.name)) {
         // exceljs lee CSV desde un stream de texto.
-        await libro.csv.read(new Blob([buf]).stream() as unknown as NodeJS.ReadableStream);
+        await libro.csv.read(
+          new Blob([buf]).stream() as unknown as Parameters<typeof libro.csv.read>[0],
+        );
       } else {
         await libro.xlsx.load(buf);
       }
